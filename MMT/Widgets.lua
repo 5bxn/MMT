@@ -255,10 +255,18 @@ local function Popup()
     return p
 end
 
+-- popups belong to UIParent; match the scale of the window they open from
+local function MatchScale(p, owner)
+    local parent = UIParent:GetEffectiveScale()
+    local own = owner and owner.GetEffectiveScale and owner:GetEffectiveScale()
+    p:SetScale((own and parent and parent > 0) and (own / parent) or 1)
+end
+
 function UI.OpenList(owner, items, current, onPick)
     local p = Popup()
     if p:IsShown() and p.owner == owner then p:Hide() return end
     p.owner, p.items, p.current, p.onPick = owner, items, current, onPick
+    MatchScale(p, owner)
     -- start scrolled to the selected entry
     p.offset = 0
     for i, item in ipairs(items) do
@@ -491,6 +499,7 @@ function UI.OpenColorPicker(owner, current, onPick)
     local p = ColorPopup()
     if p:IsShown() and p.owner == owner then p:Hide() return end
     p.owner, p.onPick = owner, onPick
+    MatchScale(p, owner)
     p.hex:SetText(current and ToHex(current) or "")
     p.hex:UpdatePlaceholder()
     p:ClearAllPoints()

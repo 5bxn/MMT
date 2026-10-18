@@ -7,6 +7,7 @@ local UI = ns.UI
 local A = UI.ACCENT
 
 local WIDTH, HEIGHT, NAV = 700, 620, 150
+local SCALE_MIN, SCALE_MAX, SCALE_STEP = 0.6, 2.0, 0.05
 local window
 local pages, coreOrder = {}, {}
 local current
@@ -201,12 +202,42 @@ local function Build()
     manage:SetPoint("TOPLEFT", 0, y)
     w.tabs[#w.tabs + 1] = manage
 
-    -- footer: version (debug tools are on the Help page)
+    -- footer: window scale and version (debug tools are on the Help page)
     nav.widgets = {}
     local version = UI.Label(nav, "v" .. ns.version)
     version:SetPoint("BOTTOMLEFT", 16, 12)
     version:SetTextColor(0.4, 0.4, 0.4)
+    -- buttons instead of a slider: dragging a slider while the window under it
+    -- changes size would make the slider jump away from the mouse
+    local scaleLabel = UI.Label(nav, "")
+    scaleLabel:SetPoint("BOTTOMLEFT", 16, 32)
+    scaleLabel:SetTextColor(0.6, 0.6, 0.6)
+    local plus = UI.TextButton(nav, "+", function() ns.SetConfigScale(ns.ConfigScale() + SCALE_STEP) end, 18)
+    plus:SetPoint("BOTTOMRIGHT", -10, 28)
+    local minus = UI.TextButton(nav, "-", function() ns.SetConfigScale(ns.ConfigScale() - SCALE_STEP) end, 18)
+    minus:SetPoint("RIGHT", plus, "LEFT", -2, 0)
+    local scaleTip = "Size of this settings window, for high screen resolutions. Right-click to reset to 100%. Also /mmt scale <percent>."
+    for _, b in ipairs({ plus, minus }) do
+        b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        local click = b:GetScript("OnClick")
+        b:SetScript("OnClick", function(self, button)
+            if button == "RightButton" then ns.SetConfigScale(1) else click(self, button) end
+        end)
+        b:HookScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText("Window scale")
+            GameTooltip:AddLine(scaleTip, 1, 1, 1, true)
+            GameTooltip:Show()
+        end)
+        b:HookScript("OnLeave", function() GameTooltip:Hide() end)
+    end
+    local scaleWidget = { Refresh = function()
+        scaleLabel:SetText(("Scale %d%%"):format(math.floor(ns.ConfigScale() * 100 + 0.5)))
+    end }
+    table.insert(nav.widgets, scaleWidget)
+    scaleWidget.Refresh()
     w.navWidgets = nav.widgets
+    w:SetScale(ns.ConfigScale())
 
     w.pageTitle = UI.Label(w, "", "GameFontNormalLarge")
     w.pageTitle:SetPoint("TOPLEFT", NAV + 16, -14)
@@ -224,6 +255,23 @@ local function Build()
         if ns.UpdateDistanceVisibility then ns.UpdateDistanceVisibility() end
     end)
     return w
+end
+
+---------------------------------------------------------------------------
+-- Window scale (account-wide: same screen for every character and profile)
+---------------------------------------------------------------------------
+function ns.ConfigScale()
+    return (MMTDB and tonumber(MMTDB.configScale)) or 1
+end
+
+function ns.SetConfigScale(v)
+    v = math.floor(math.max(SCALE_MIN, math.min(SCALE_MAX, v)) * 20 + 0.5) / 20
+    MMTDB.configScale = v
+    if window then
+        window:SetScale(v)
+        RefreshNav()
+    end
+    return v
 end
 
 -- key: page key ("team", "xp", "modules", ...) or a module name
@@ -284,6 +332,15 @@ SlashCmdList.MMT = function(msg)
         ns.ToggleConfig("modules")
     elseif cmd == "help" then
         ns.ToggleConfig("help")
+    elseif cmd == "scale" then
+        local pct = tonumber((arg or ""):match("^(%d+)"))
+        if pct then
+            local v = ns.SetConfigScale(pct / 100)
+            ns.Print("Settings window scale: %d%%.", math.floor(v * 100 + 0.5))
+        else
+            ns.Print("Settings window scale: %d%%. Use /mmt scale <percent>, e.g. /mmt scale 130 (60 to 200).",
+                math.floor(ns.ConfigScale() * 100 + 0.5))
+        end
     elseif cmd == "reset" then
         ns.ResetProfile()
         ns.Print("Profile \"%s\" reset to defaults.", ns.CurrentProfileName())
@@ -296,6 +353,7 @@ SlashCmdList.MMT = function(msg)
         ns.Print("/mmt modules - show installed modules")
         ns.Print("/mmt help - debug tools and guides for writing modules")
         ns.Print("/mmt debug - debug tools (on, off, dump, log, clear, chat, name <text>)")
+        ns.Print("/mmt scale <percent> - size of the settings window (e.g. 130)")
         ns.Print("/mmt reset - reset the active profile")
     end
 end

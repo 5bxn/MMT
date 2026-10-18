@@ -1,7 +1,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.6.2: core addon (MMT) plus optional modules (MMT_*).
+Version 0.6.3: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -70,6 +70,9 @@ Saved data from MMT 0.1.x is converted automatically.
 - **Help**: debug tools with a how-to, and guides for writing modules and using the
   team communication (with copyable example code).
 
+The settings window has its own scale (- / + at the bottom left, right-click resets,
+or `/mmt scale 130`), kept per account. The XP window's scale is under XP Window > Look.
+
 Windows show first names only; hover a name for the full name and details.
 Chat messages and the debug report use full names.
 
@@ -98,7 +101,7 @@ Team abandon is QTAB:<questID>.
 ## Commands
 - `/mmt` settings, `/mmt xp` toggle XP window, `/mmt trade` refill open trade,
   `/mmt sync` send the active profile to the online team, `/mmt modules` installed
-  modules, `/mmt help` help page, `/mmt reset` reset profile.
+  modules, `/mmt scale <percent>` settings window size, `/mmt help` help page, `/mmt reset` reset profile.
 
 ## Two accounts = two separate teams
 Every account keeps its own saved settings, so the team must exist on each client:
