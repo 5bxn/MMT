@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: MMT - Item Compare
 ## Notes: MMT module: hover an item and press a key to see what every team member wears in that slot.
-## Version: 1.0.1
+## Version: 1.0.2
 ## X-License: GPL-3.0
 ## Dependencies: MMT
 ## X-MMT-Module: 1

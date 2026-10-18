@@ -207,8 +207,21 @@ local function Render(link)
     local rowWidth = 0
     for i = 1, math.min(used, cfg.perRow) do rowWidth = rowWidth + tips[i]:GetWidth() + 6 end
     local screenRight = UIParent:GetRight() * UIParent:GetEffectiveScale()
-    local tipRight = (GameTooltip:GetRight() or 0) * GameTooltip:GetEffectiveScale()
-    local toRight = tipRight + rowWidth * first:GetEffectiveScale() <= screenRight
+    -- start beyond the game's "Equipped" comparison tooltips (ShoppingTooltip1/2),
+    -- they sit next to GameTooltip too
+    local gs = GameTooltip:GetEffectiveScale()
+    local tipLeft, tipRight = (GameTooltip:GetLeft() or 0) * gs, (GameTooltip:GetRight() or 0) * gs
+    local edgeLeft, edgeRight = tipLeft, tipRight
+    for _, s in ipairs({ ShoppingTooltip1, ShoppingTooltip2 }) do
+        if s and s:IsShown() and s:GetLeft() then
+            local ss = s:GetEffectiveScale()
+            local sl, sr = s:GetLeft() * ss, s:GetRight() * ss
+            if sl >= tipRight - 4 then edgeRight = math.max(edgeRight, sr)
+            elseif sr <= tipLeft + 4 then edgeLeft = math.min(edgeLeft, sl) end
+        end
+    end
+    local toRight = edgeRight + rowWidth * first:GetEffectiveScale() <= screenRight
+    local fs = first:GetEffectiveScale()
 
     local rowStart, rowHeight = 1, 0
     for i = 1, used do
@@ -216,8 +229,8 @@ local function Render(link)
         t:ClearAllPoints()
         local col = (i - 1) % cfg.perRow
         if i == 1 then
-            if toRight then t:SetPoint("TOPLEFT", GameTooltip, "TOPRIGHT", 6, -20)
-            else t:SetPoint("TOPRIGHT", GameTooltip, "TOPLEFT", -6, -20) end
+            if toRight then t:SetPoint("TOPLEFT", GameTooltip, "TOPRIGHT", (edgeRight - tipRight) / fs + 6, -20)
+            else t:SetPoint("TOPRIGHT", GameTooltip, "TOPLEFT", (edgeLeft - tipLeft) / fs - 6, -20) end
         elseif col == 0 then
             t:SetPoint(toRight and "TOPLEFT" or "TOPRIGHT", tips[rowStart], toRight and "TOPLEFT" or "TOPRIGHT", 0, -(rowHeight + 26))
             rowStart, rowHeight = i, 0
@@ -297,6 +310,15 @@ if GameTooltip and GameTooltip.HookScript then
             if not GameTooltip:IsShown() then HideAll() end
         end)
     end)
+end
+
+-- the comparison tooltips can appear or move after we laid out -> lay out again
+for _, s in ipairs({ ShoppingTooltip1, ShoppingTooltip2 }) do
+    if s and s.HookScript then
+        local function Relayout() if used > 0 then C_Timer.After(0, Update) end end
+        s:HookScript("OnShow", Relayout)
+        s:HookScript("OnHide", Relayout)
+    end
 end
 
 -- item data arrives from the server -> redraw (tooltips fill in)
