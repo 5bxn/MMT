@@ -50,7 +50,7 @@ ns.defaults = {
     shiftBypass = true,
     -- quest settings moved to the Quest Tracker module (profile.quests of older
     -- profiles is copied over by the module once)
-    gossip   = { vendor = true },
+    gossip   = { vendor = true, dialog = true },
     merchant = { sellGrey = true, repair = true, guildRepair = false, report = true, moneyFormat = "text" },
     invites  = { friends = true, bnet = true, guild = true, team = true, whisper = true, keyword = "mybox" },
     camera   = { enabled = true, factor = 2.6 },

@@ -484,6 +484,9 @@ ns.RegisterPage("automations", "Automations", function(page)
     local gv, sv = Opt("gossip", "vendor")
     L:Check("Go straight to the vendor", gv, sv,
         "Opens the vendor pane even when the NPC has other options, e.g. an innkeeper.")
+    local gdl, sdl = Opt("gossip", "dialog")
+    L:Check("Click through NPC dialogs", gdl, sdl,
+        "When an NPC has no quests and only plain dialog lines, MMT picks them one after another to advance the conversation. Lines that could cost gold, teleport, train, bind your hearthstone or start a fight are left to you, and NPCs with any other option (vendor, trainer, flights, ...) stay manual.")
     L:Check("Hold Shift to skip automation",
         function() return ns.db.shiftBypass end,
         function(v) ns.db.shiftBypass = v end,
