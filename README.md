@@ -1,7 +1,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.6.1: core addon (MMT) plus optional modules (MMT_*).
+Version 0.6.2: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -64,6 +64,8 @@ Saved data from MMT 0.1.x is converted automatically.
   anything that could cost gold, teleport, train or start a fight stays manual), sell greys, repair, role-based trades, invites (team, friends,
   guild, and anyone who whispers the keyword, default "mybox"), camera zoom,
   distance window.
+- **Shift**: hold it while an NPC window opens to keep that page manual; pick an option
+  without Shift and the next page (dialog, quest, reward) is automated again.
 - **Profiles**: per character; copy, reset, delete, export/import, sync to team (/mmt sync).
 - **Help**: debug tools with a how-to, and guides for writing modules and using the
   team communication (with copyable example code).

@@ -4,7 +4,7 @@
 local ADDON, ns = ...
 _G.MMT = ns
 ns.title = "MMT"
-ns.version = "0.6.1"
+ns.version = "0.6.2"
 ns.prefix = "MMT"
 
 ---------------------------------------------------------------------------
@@ -301,23 +301,13 @@ end
 
 ---------------------------------------------------------------------------
 -- Shift bypass for NPC automation
+--
+-- Checked by every NPC page (gossip, quest greeting, quest details, progress,
+-- reward). Shift held while a page opens keeps THAT page manual. When you
+-- then pick an option without Shift, the next page is automated again.
 ---------------------------------------------------------------------------
-local bypassActive = false
-
-local function NPCWindowsOpen()
-    return (GossipFrame and GossipFrame:IsShown()) or (QuestFrame and QuestFrame:IsShown())
-end
-
 function ns.IsBypassed()
-    if not ns.db.shiftBypass then return false end
-    if IsShiftKeyDown() then bypassActive = true end
-    return bypassActive
-end
-
-local function MaybeEndBypass()
-    C_Timer.After(0.3, function()
-        if not NPCWindowsOpen() then bypassActive = false end
-    end)
+    return ns.db.shiftBypass and IsShiftKeyDown() and true or false
 end
 
 ---------------------------------------------------------------------------
@@ -359,8 +349,6 @@ function ns.OnRefresh(fn) ns.Listen("REFRESH", fn) end
 function ns.Refresh() ns.Fire("REFRESH") end
 function ns.OnLogin(fn) ns.Listen("LOGIN", fn) end
 
-ns.On("GOSSIP_CLOSED", MaybeEndBypass)
-ns.On("QUEST_FINISHED", MaybeEndBypass)
 
 ns.On("ADDON_LOADED", function(name)
     if name == ADDON then ns.InitDB() end

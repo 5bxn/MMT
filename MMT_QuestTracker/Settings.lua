@@ -148,7 +148,7 @@ M.Page = function(_, page)
     local gan, san = Opt("announce")
     L2:Check("Announce quest completion in party chat", gan, san,
         "Posts \"[Quest] is ready for turn-in.\" in party chat when one of your quests becomes ready to turn in.")
-    L2:Note("Hold Shift while talking to an NPC to keep it manual (Core > Automations).")
+    L2:Note("Hold Shift while an NPC page opens to keep that page manual (Core > Automations).")
 
     local R2 = UI.Column(Au, COL2_X, 0, COL_W)
     R2:Header("Team")

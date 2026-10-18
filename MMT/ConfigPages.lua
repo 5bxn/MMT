@@ -490,7 +490,7 @@ ns.RegisterPage("automations", "Automations", function(page)
     L:Check("Hold Shift to skip automation",
         function() return ns.db.shiftBypass end,
         function(v) ns.db.shiftBypass = v end,
-        "While Shift is held when you talk to an NPC, quests and gossip stay manual for that conversation.")
+        "Hold Shift while an NPC window opens to keep that page manual. Pick an option without Shift and the next page is automated again.")
     L:Note("Quest automation (accept, turn in, share) is in the Quest Tracker module.")
 
     L:Header("Vendor")
