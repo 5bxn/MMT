@@ -1,0 +1,27 @@
+## Interface: 16001
+## Title: MMT - Manage My Team
+## Notes: Multiboxing assistant: team, roles, team XP window with rested XP, layer and phasing, trade rules and vendor/invite automations. Modules (MMT_*) add more. Type /mmt for settings.
+## Version: 0.6.0
+## X-License: GPL-3.0
+## SavedVariables: MMTDB
+## IconTexture: Interface\Icons\INV_Misc_Note_01
+
+Core.lua
+Profiles.lua
+Modules.lua
+Widgets.lua
+Team.lua
+Comm.lua
+Layer.lua
+LayerHop.lua
+XPWindow.lua
+Trade.lua
+Quests.lua
+Merchant.lua
+Invites.lua
+Camera.lua
+Distance.lua
+Debug.lua
+Config.lua
+ConfigPages.lua
+Help.lua

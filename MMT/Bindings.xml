@@ -1,0 +1,4 @@
+<Bindings>
+    <!-- Key bindings live in the modules (e.g. MMT_ItemCompare/Bindings.xml).
+         This placeholder stays so clients updated from 0.3.0 without a restart find the file. -->
+</Bindings>

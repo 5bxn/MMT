@@ -1,0 +1,380 @@
+-- MMT - Manage My Team
+-- Core: events, callbacks, chat output, debug log, names and helpers.
+
+local ADDON, ns = ...
+_G.MMT = ns
+ns.title = "MMT"
+ns.version = "0.6.0"
+ns.prefix = "MMT"
+
+---------------------------------------------------------------------------
+-- Fonts (LibSharedMedia fonts are added when that library is present)
+---------------------------------------------------------------------------
+ns.fonts = {
+    { name = "Friz Quadrata", path = "Fonts\\FRIZQT__.TTF" },
+    { name = "Arial Narrow",  path = "Fonts\\ARIALN.TTF" },
+    { name = "Morpheus",      path = "Fonts\\MORPHEUS.TTF" },
+    { name = "Skurri",        path = "Fonts\\SKURRI.TTF" },
+}
+
+function ns.LoadSharedMediaFonts()
+    local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
+    if not LSM then return end
+    local known = {}
+    for _, f in ipairs(ns.fonts) do known[f.name] = true end
+    for _, name in ipairs(LSM:List("font")) do
+        if not known[name] then
+            ns.fonts[#ns.fonts + 1] = { name = name, path = LSM:Fetch("font", name) }
+        end
+    end
+end
+
+-- name of a font in the list, or a font file path (kept from older profiles)
+function ns.FontPath(name)
+    for _, f in ipairs(ns.fonts) do
+        if f.name == name then return f.path end
+    end
+    if type(name) == "string" and name:find("\\", 1, true) then return name end
+    return STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
+end
+
+function ns.FontNameForPath(path)
+    for _, f in ipairs(ns.fonts) do
+        if f.path:lower() == (path or ""):lower() then return f.name end
+    end
+    return path
+end
+
+function ns.ApplyFont(fontString, name, size, outline)
+    outline = (outline and outline ~= "NONE") and outline or ""
+    if not fontString:SetFont(ns.FontPath(name), size, outline) then
+        fontString:SetFont(STANDARD_TEXT_FONT, size, outline)
+    end
+end
+
+---------------------------------------------------------------------------
+-- Chat output & debug log
+---------------------------------------------------------------------------
+local PREFIX = "|cff4fb3ffMMT|r: "
+
+function ns.Print(fmt, ...)
+    local msg = select("#", ...) > 0 and fmt:format(...) or tostring(fmt)
+    DEFAULT_CHAT_FRAME:AddMessage(PREFIX .. msg)
+end
+
+-- Debug lines go into a log (/mmt debug dump) and, optionally, to chat.
+function ns.Debug(fmt, ...)
+    if not (MMTDB and MMTDB.debug) then return end
+    local ok, msg = pcall(string.format, fmt, ...)
+    if not ok then msg = tostring(fmt) end
+    local line = date("%H:%M:%S") .. " " .. msg
+    MMTDB.debuglog = MMTDB.debuglog or {}
+    local log = MMTDB.debuglog
+    log[#log + 1] = line
+    if #log > 300 then table.remove(log, 1) end
+    if MMTDB.debugChat then DEFAULT_CHAT_FRAME:AddMessage("|cff888888MMT debug|r " .. line) end
+end
+
+-- Shows a string with every non-alphanumeric byte as <hex>, so spaces,
+-- hyphens and special characters in names become visible.
+function ns.Repr(s)
+    if s == nil then return "nil" end
+    if ns.IsSecret(s) then return "<secret>" end
+    s = tostring(s)
+    if not s:find("[^%w]") then return '"' .. s .. '"' end
+    local vis = s:gsub("[^%w]", function(c) return string.format("<%02x>", c:byte()) end)
+    return '"' .. s .. '" ' .. vis
+end
+
+---------------------------------------------------------------------------
+-- Small helpers
+---------------------------------------------------------------------------
+local issecretvalue = issecretvalue
+function ns.IsSecret(v)
+    return issecretvalue ~= nil and issecretvalue(v) == true
+end
+
+-- Calls fn safely; returns nil if it errors or yields a secret value.
+function ns.Safe(fn, ...)
+    if type(fn) ~= "function" then return nil end
+    local ok, a, b, c, d, e, f, g = pcall(fn, ...)
+    if not ok or ns.IsSecret(a) then return nil end
+    return a, b, c, d, e, f, g
+end
+
+function ns.Trim(s)
+    return ((s or ""):match("^%s*(.-)%s*$"))
+end
+
+function ns.FormatMoney(copper)
+    copper = math.floor(copper or 0)
+    local style = ns.db and ns.db.merchant.moneyFormat or "text"
+    if style == "coins" and GetCoinTextureString then
+        return GetCoinTextureString(copper)
+    end
+    local g = math.floor(copper / 10000)
+    local s = math.floor(copper / 100) % 100
+    local c = copper % 100
+    local parts = {}
+    if style == "short" then
+        if g > 0 then parts[#parts + 1] = g .. "g" end
+        if s > 0 then parts[#parts + 1] = s .. "s" end
+        if c > 0 or #parts == 0 then parts[#parts + 1] = c .. "c" end
+    else
+        if g > 0 then parts[#parts + 1] = g .. " gold" end
+        if s > 0 then parts[#parts + 1] = s .. " silver" end
+        if c > 0 or #parts == 0 then parts[#parts + 1] = c .. " copper" end
+    end
+    return table.concat(parts, " ")
+end
+
+function ns.Ago(t)
+    if not t then return "never" end
+    local d = time() - t
+    if d < 90 then return "just now" end
+    if d < 3600 then return math.floor(d / 60) .. " min ago" end
+    if d < 86400 * 2 then return math.floor(d / 3600) .. " h ago" end
+    return math.floor(d / 86400) .. " days ago"
+end
+
+ns.BAGS = NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS or 4
+function ns.ItemInfo(item)
+    local getInfo = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+    return getInfo(item)
+end
+
+---------------------------------------------------------------------------
+-- Names (tested on WoW: Forever in MMT 0.1.x)
+--
+-- Characters have a first and a last name. UnitFullName returns them as
+-- (first, last) where other clients return (name, realm). Senders of
+-- addon messages arrive as "First Last" and sometimes with "-<realm>".
+-- Team keys look like "First-Last"; first and last name are also stored
+-- separately, and incoming names are matched tolerantly.
+---------------------------------------------------------------------------
+local function OwnRealm()
+    local r = GetNormalizedRealmName and GetNormalizedRealmName()
+    if not r or r == "" then r = (GetRealmName() or ""):gsub("%s", "") end
+    return r
+end
+ns.OwnRealm = OwnRealm
+
+function ns.ToFull(name, realm)
+    if not name or name == "" then return nil end
+    if name:find("-", 1, true) then return name end
+    if not realm or realm == "" then realm = OwnRealm() end
+    return name .. "-" .. realm
+end
+
+-- lower-case, letters/digits only: "Anna Schmidt" == "anna-schmidt"
+function ns.NormKey(s)
+    return ((s or ""):lower():gsub("[^%w\128-\255]", ""))
+end
+
+-- Returns first, last (or nil), teamKey ("First-Last", or "First").
+function ns.SplitUnit(unit)
+    local n, r = ns.Safe(UnitFullName, unit)
+    if not n then n = ns.Safe(UnitName, unit) end
+    if not n then return nil end
+    local last
+    if r and not ns.IsSecret(r) and r ~= "" and ns.NormKey(r) ~= ns.NormKey(OwnRealm()) then last = r end
+    return n, last, last and (n .. "-" .. last) or n
+end
+
+function ns.PlayerFull()
+    local _, _, key = ns.SplitUnit("player")
+    return key
+end
+
+-- "First-Last-ClassicBetaPvE2" -> "First-Last"
+function ns.StripRealm(s)
+    s = s or ""
+    local realm = OwnRealm()
+    if realm ~= "" then
+        local suffix = "-" .. realm:lower()
+        if #s > #suffix and s:lower():sub(-#suffix) == suffix then
+            return s:sub(1, #s - #suffix)
+        end
+    end
+    return s
+end
+
+local function Member(key)
+    return ns.db and ns.db.team and ns.db.team[key]
+end
+
+function ns.FirstName(key)
+    local m = Member(key)
+    if m and m.name then return m.name end
+    key = ns.StripRealm(key or "")
+    return key:match("^([^%-%s]+)") or key
+end
+
+-- "First Last" for chat messages: characters are always addressed by both names.
+function ns.FullDisplay(key)
+    local m = Member(key)
+    if m and m.name then
+        return m.last and (m.name .. " " .. m.last) or m.name
+    end
+    return (ns.StripRealm(key or "?"):gsub("-", " "))
+end
+
+-- Name shown in windows: the first name. The full name is in the
+-- mouseover tooltip (ns.MemberTooltip); chat messages use FullDisplay.
+function ns.Display(key)
+    return ns.FirstName(key)
+end
+
+-- Opens GameTooltip for a team member: full name in class colour, roles and
+-- online state. Returns the tooltip so callers can add lines before :Show().
+function ns.MemberTooltip(owner, key, anchor)
+    GameTooltip:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+    local m = ns.db and ns.db.team[key]
+    local c = m and m.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[m.class]
+    GameTooltip:SetText(ns.FullDisplay(key), c and c.r or 1, c and c.g or 1, c and c.b or 1)
+    if ns.IsSelf(key) then
+        GameTooltip:AddLine("You", 0.6, 0.6, 0.6)
+    elseif ns.IsOnline and ns.IsOnline(key) then
+        GameTooltip:AddLine("Online with MMT", 0.4, 1, 0.4)
+    elseif m then
+        GameTooltip:AddLine("Offline", 0.6, 0.6, 0.6)
+    end
+    if m and ns.MemberRoleList then
+        local roles = table.concat(ns.MemberRoleList(key), ", ")
+        if roles ~= "" then GameTooltip:AddLine("Roles: " .. roles, 1, 1, 1) end
+    end
+    return GameTooltip
+end
+
+-- Shows the member tooltip while the mouse is over frame; getKey() returns the key.
+function ns.HoverMember(frame, getKey, addLines)
+    frame:EnableMouse(true)
+    frame:SetScript("OnEnter", function(self)
+        local key = getKey()
+        if not key then return end
+        local tip = ns.MemberTooltip(self, key)
+        if addLines then addLines(tip, key) end
+        tip:Show()
+    end)
+    frame:SetScript("OnLeave", function() GameTooltip:Hide() end)
+end
+
+function ns.IsSelf(name)
+    if not name or name == "" or ns.IsSecret(name) then return false end
+    local nk = ns.NormKey(ns.StripRealm(name))
+    if nk == ns.NormKey(ns.PlayerFull()) then return true end
+    return nk == ns.NormKey((ns.Safe(UnitName, "player")))
+end
+
+-- Finds the team key for any spelling of a name (or nil).
+function ns.Resolve(name)
+    if not name or name == "" or not ns.db or ns.IsSecret(name) then return nil end
+    local team = ns.db.team
+    if team[name] then return name end
+    local bare = ns.StripRealm(name)
+    if team[bare] then return bare end
+    local nk = ns.NormKey(bare)
+    for key in pairs(team) do
+        if ns.NormKey(key) == nk then return key end
+    end
+    -- a bare first name matches if it is unambiguous
+    local found
+    for key, m in pairs(team) do
+        if m.name and ns.NormKey(m.name) == nk then
+            if found then return nil end
+            found = key
+        end
+    end
+    return found
+end
+
+function ns.NameFromGUID(guid, fallback)
+    if guid then
+        local _, _, _, _, _, first, last = ns.Safe(GetPlayerInfoByGUID, guid)
+        if first and last and last ~= "" and ns.NormKey(last) ~= ns.NormKey(OwnRealm()) then
+            return first .. " " .. last
+        end
+    end
+    if fallback and not ns.IsSecret(fallback) then return (ns.StripRealm(fallback):gsub("-", " ")) end
+    return "?"
+end
+
+---------------------------------------------------------------------------
+-- Shift bypass for NPC automation
+---------------------------------------------------------------------------
+local bypassActive = false
+
+local function NPCWindowsOpen()
+    return (GossipFrame and GossipFrame:IsShown()) or (QuestFrame and QuestFrame:IsShown())
+end
+
+function ns.IsBypassed()
+    if not ns.db.shiftBypass then return false end
+    if IsShiftKeyDown() then bypassActive = true end
+    return bypassActive
+end
+
+local function MaybeEndBypass()
+    C_Timer.After(0.3, function()
+        if not NPCWindowsOpen() then bypassActive = false end
+    end)
+end
+
+---------------------------------------------------------------------------
+-- Events & callbacks
+---------------------------------------------------------------------------
+local frame = CreateFrame("Frame")
+local handlers = {}
+
+function ns.On(event, fn)
+    if not handlers[event] then
+        handlers[event] = {}
+        frame:RegisterEvent(event)
+    end
+    table.insert(handlers[event], fn)
+end
+
+frame:SetScript("OnEvent", function(_, event, ...)
+    if not ns.ready and event ~= "ADDON_LOADED" and event ~= "PLAYER_LOGIN" then return end
+    for _, fn in ipairs(handlers[event]) do
+        local ok, err = pcall(fn, ...)
+        if not ok then ns.Debug("%s handler error: %s", event, tostring(err)) end
+    end
+end)
+
+local callbacks = {}
+function ns.Listen(name, fn)
+    callbacks[name] = callbacks[name] or {}
+    table.insert(callbacks[name], fn)
+end
+function ns.Fire(name, ...)
+    for _, fn in ipairs(callbacks[name] or {}) do
+        local ok, err = pcall(fn, ...)
+        if not ok then ns.Debug("%s callback error: %s", name, tostring(err)) end
+    end
+end
+
+-- settings changed -> modules re-apply them
+function ns.OnRefresh(fn) ns.Listen("REFRESH", fn) end
+function ns.Refresh() ns.Fire("REFRESH") end
+function ns.OnLogin(fn) ns.Listen("LOGIN", fn) end
+
+ns.On("GOSSIP_CLOSED", MaybeEndBypass)
+ns.On("QUEST_FINISHED", MaybeEndBypass)
+
+ns.On("ADDON_LOADED", function(name)
+    if name == ADDON then ns.InitDB() end
+end)
+
+ns.On("PLAYER_LOGIN", function()
+    ns.SelectCharacterProfile()
+    ns.LoadSharedMediaFonts()
+    ns.ready = true
+    ns.Fire("LOGIN")
+    ns.Refresh()
+
+    local isLoaded = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
+    if isLoaded and isLoaded("OMT") and not ns.justMigrated then
+        ns.Print("OMT is now part of MMT. Please disable or delete the OMT addon, otherwise automations run twice.")
+    end
+end)
