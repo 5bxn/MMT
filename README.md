@@ -73,7 +73,15 @@ Saved data from MMT 0.1.x is converted automatically.
   distance window.
 - **Shift**: hold it while an NPC window opens to keep that page manual; pick an option
   without Shift and the next page (dialog, quest, reward) is automated again.
-- **Profiles**: per character; copy, reset, delete, export/import, sync to team (/mmt sync).
+- **Profiles**: per character; copy, reset, delete, export/import.
+- **Sync to team**: `/mmt sync` (or the blue button in the bottom right of Profiles) sends
+  the core settings of the active profile: team, roles, XP window incl. its position,
+  automations, distance window. Module settings are not included. Item Compare, Loot
+  Distribution and Quest Tracker have their own button and `/mmt sync <module>`
+  (e.g. `/mmt sync questtracker`), which sends only that module's settings.
+  Messages are paced to stay under the game's addon message limit. The sender sees who
+  it went to and who confirmed (received, accepted, declined); recipients see when a
+  transfer starts and when it is complete, then a dialog to accept it.
 - **Help**: debug tools with a how-to, and guides for writing modules and using the
   team communication (with copyable example code).
 
@@ -107,7 +115,7 @@ Team abandon is QTAB:<questID>.
 
 ## Commands
 - `/mmt` settings, `/mmt xp` toggle XP window, `/mmt trade` refill open trade,
-  `/mmt sync` send the active profile to the online team, `/mmt modules` installed
+  `/mmt sync` send the core settings to the team, `/mmt sync <module>` only that module's settings, `/mmt modules` installed
   modules, `/mmt scale <percent>` settings window size, `/mmt help` help page, `/mmt reset` reset profile.
 
 ## Two accounts = two separate teams

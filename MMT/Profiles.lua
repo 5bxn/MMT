@@ -3,7 +3,8 @@
 --
 -- MMTDB is account-wide. Every character picks a profile (default
 -- "Default"), so all characters of an account share settings by default.
--- Profiles reach other accounts by export/import or /mmt sync.
+-- Profiles reach other accounts by export/import; /mmt sync sends the core
+-- settings of the active profile (Sync.lua).
 
 local _, ns = ...
 
@@ -360,6 +361,27 @@ function ns.ImportProfile(name, data, activate)
     MergeDefaults(data, ns.defaults)
     if activate then ns.SetProfile(name) end
     return true
+end
+
+-- Core settings only (team sync): the active profile without the settings
+-- of modules. Window positions (XP, distance) are part of it.
+function ns.ExportCoreSettings()
+    local data = {}
+    for k, v in pairs(ns.db) do
+        if k ~= "modules" then data[k] = Copy(v) end
+    end
+    return "MMT1:" .. ns.Serialize({ name = ns.CurrentProfileName(), data = data, core = true })
+end
+
+-- Stores core settings under name and activates that profile. The module
+-- settings already in a profile of that name stay as they are (also when
+-- an older MMT sent its full profile).
+function ns.ImportCoreSettings(name, data)
+    name = ns.Trim(name)
+    if name == "" or type(data) ~= "table" then return false end
+    local existing = MMTDB.profiles[name]
+    data.modules = (existing and type(existing.modules) == "table") and Copy(existing.modules) or {}
+    return ns.ImportProfile(name, data, true)
 end
 
 ---------------------------------------------------------------------------

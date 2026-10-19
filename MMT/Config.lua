@@ -23,7 +23,14 @@ local function RegisterModulePages()
     for _, m in ipairs(ns.moduleList) do
         if m.Page and not pages["mod:" .. m.name] then
             pages["mod:" .. m.name] = { key = "mod:" .. m.name, title = m.title, module = m,
-                build = function(frame) m.Page(m, frame) end }
+                build = function(frame)
+                    m.Page(m, frame)
+                    if m.sync then
+                        UI.SyncButton(frame, "Sync to team", function() ns.SendModuleSettings(m) end,
+                            "Sync " .. m.title .. " settings",
+                            ("Same as /mmt sync %s: sends only the %s settings of your active profile to your group and online team members. Each of them gets a dialog to accept them. Core settings and other modules are not touched."):format(m.name:lower(), m.title))
+                    end
+                end }
         end
     end
 end
@@ -323,7 +330,20 @@ SlashCmdList.MMT = function(msg)
     elseif cmd == "trade" then
         ns.FillTrade(true)
     elseif cmd == "sync" then
-        ns.SendProfileToTeam()
+        if arg == "" then
+            ns.SendProfileToTeam()
+        else
+            local m, ambiguous = ns.FindSyncModule(arg)
+            if m then
+                ns.SendModuleSettings(m)
+            else
+                local names = {}
+                for _, mod in ipairs(ns.SyncableModules()) do names[#names + 1] = mod.name:lower() end
+                ns.Print("%s \"%s\". Use /mmt sync for the core settings, or /mmt sync <module>: %s",
+                    ambiguous and "More than one module matches" or "No module with settings to share matches",
+                    arg, #names > 0 and table.concat(names, ", ") or "(no module loaded)")
+            end
+        end
     elseif cmd == "ping" then
         ns.Ping()
     elseif cmd == "debug" then
@@ -348,7 +368,12 @@ SlashCmdList.MMT = function(msg)
         ns.Print("/mmt - open settings")
         ns.Print("/mmt xp - show/hide the XP window")
         ns.Print("/mmt trade - (re)fill the open trade window for the partner's roles")
-        ns.Print("/mmt sync - send the active profile to your online team")
+        ns.Print("/mmt sync - send the core settings of the active profile to your team (no module settings)")
+        local names = {}
+        for _, m in ipairs(ns.SyncableModules()) do names[#names + 1] = m.name:lower() end
+        if #names > 0 then
+            ns.Print("/mmt sync <module> - send only that module's settings (%s)", table.concat(names, ", "))
+        end
         ns.Print("/mmt ping - test whispering every team member by name")
         ns.Print("/mmt modules - show installed modules")
         ns.Print("/mmt help - debug tools and guides for writing modules")

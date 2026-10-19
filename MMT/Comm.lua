@@ -171,7 +171,7 @@ end
 ---------------------------------------------------------------------------
 -- Receiving
 ---------------------------------------------------------------------------
-local buffers, hinted = {}, {}
+local hinted = {}
 
 local function HandleXP(key, sender, s)
     local old = ns.status[key]
@@ -205,23 +205,6 @@ local function ParseXP(text)
     }
 end
 
-local function HandleSync(key, id, idx, total, chunk)
-    if total < 1 or total > 200 or idx < 1 or idx > total then return end
-    local buf = buffers[key]
-    if not buf or buf.id ~= id then
-        buf = { id = id, total = total, got = 0, parts = {} }
-        buffers[key] = buf
-    end
-    if not buf.parts[idx] then
-        buf.parts[idx] = chunk
-        buf.got = buf.got + 1
-    end
-    if buf.got == buf.total then
-        buffers[key] = nil
-        ns.OnProfileReceived(key, table.concat(buf.parts))
-    end
-end
-
 local function HintUnknown(sender)
     if hinted[sender] then return end
     hinted[sender] = true
@@ -244,11 +227,12 @@ ns.On("CHAT_MSG_ADDON", function(prefix, text, channel, sender)
     local ov = text:match("^PONG:(%d+)$")
     if ov then ns.OnPong(key, sender, tonumber(ov)) return end
 
-    local isSync = text:match("^SYNC:") ~= nil
+    local isSync = text:match("^SYNC") ~= nil   -- SYNC, SYNCHI, SYNCACK (Sync.lua)
     if not key then
         if fromGroup then HintUnknown(sender) end
-        if not (isSync and fromGroup) then return end -- profile sync from group members is allowed
+        if not (isSync and fromGroup) then return end -- settings sync from group members is allowed
     end
+    if isSync then ns.OnSyncMessage(key, sender, text, channel) return end
 
     local s = ParseXP(text)
     if s then
@@ -261,8 +245,6 @@ ns.On("CHAT_MSG_ADDON", function(prefix, text, channel, sender)
         ns.Fire("STATUS_CHANGED")
         return
     end
-    local id, idx, total, chunk = text:match("^SYNC:(%d+):(%d+):(%d+):(.*)$")
-    if id then HandleSync(key or sender, id, tonumber(idx), tonumber(total), chunk) return end
     if key then ns.Fire("TEAM_MESSAGE", key, sender, text) end -- item compare data etc.
 end)
 
@@ -320,35 +302,6 @@ function ns.Ping()
         end
         ns.Print("No answer = other client offline, no MMT there, or the name was not accepted. Run /mmt debug dump on both clients.")
     end)
-end
-
----------------------------------------------------------------------------
--- Profile sync (lets a profile reach the team's other accounts)
----------------------------------------------------------------------------
-function ns.SendProfileToTeam()
-    local payload = ns.ExportProfile()
-    local id = tostring(math.random(100000, 999999))
-    local size = 200
-    local total = math.ceil(#payload / size)
-    for i = 1, total do
-        local chunk = payload:sub((i - 1) * size + 1, i * size)
-        local msg = ("SYNC:%s:%d:%d:%s"):format(id, i, total, chunk)
-        C_Timer.After((i - 1) * 0.2, function() ns.SendToTeam(msg, false) end)
-    end
-    ns.Print("Sending profile \"%s\" to your group and team (%d messages).", ns.CurrentProfileName(), total)
-end
-
-function ns.OnProfileReceived(sender, payload)
-    local name, data = ns.ParseExport(payload)
-    if not name then return end
-    local who = (ns.db.team[sender] and ns.FirstName(sender)) or ns.FirstName(sender)
-    -- own dialog instead of Blizzard's StaticPopup (taint)
-    ns.UI.Confirm(("%s wants to send you the MMT settings profile \"%s\".\n\nAccepting overwrites a profile with the same name and makes it your active profile."):format(who, name),
-        "Accept profile", function()
-            if ns.ImportProfile(name, data, true) then
-                ns.Print("Profile \"%s\" imported and activated.", name)
-            end
-        end)
 end
 
 ---------------------------------------------------------------------------

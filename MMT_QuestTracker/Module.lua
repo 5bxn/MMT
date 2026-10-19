@@ -19,6 +19,7 @@ local M = MMT.NewModule({
     name = "QuestTracker",
     title = "Quest Tracker",
     description = "Team quest tracker (zone, quest, objective, progress per team member) and quest automation.",
+    sync = true,   -- /mmt sync <module> and the Sync button share M.db with the team
     defaults = {
         -- automation (the first five were in Core > Automations > Quests)
         acceptNPC       = true,

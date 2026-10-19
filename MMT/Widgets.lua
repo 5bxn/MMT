@@ -566,8 +566,10 @@ function UI.CloseOnEscape(frame)
 end
 
 -- Small flat yes/no dialog (instead of Blizzard's StaticPopup, which taints).
+-- onCancel runs when the dialog closes without Accept (Cancel, Escape, or
+-- replaced by the next dialog).
 local confirm
-function UI.Confirm(text, acceptText, onAccept, cancelText)
+function UI.Confirm(text, acceptText, onAccept, cancelText, onCancel)
     if not confirm then
         local f = CreateFrame("Frame", "MMTConfirmFrame", UIParent)
         f:SetSize(380, 130)
@@ -580,19 +582,95 @@ function UI.Confirm(text, acceptText, onAccept, cancelText)
         f.text:SetPoint("TOPLEFT", 16, -16)
         f.text:SetPoint("TOPRIGHT", -16, -16)
         f.text:SetJustifyH("LEFT")
-        f.accept = UI.Button(f, 150, "", function() f:Hide(); if f.onAccept then f.onAccept() end end)
+        f.accept = UI.Button(f, 150, "", function()
+            local fn = f.onAccept
+            f.onAccept, f.onCancel = nil, nil
+            f:Hide()
+            if fn then fn() end
+        end)
         f.accept:SetPoint("BOTTOMLEFT", 16, 14)
         f.cancel = UI.Button(f, 150, "Cancel", function() f:Hide() end)
         f.cancel:SetPoint("BOTTOMRIGHT", -16, 14)
+        f:SetScript("OnHide", function()
+            local fn = f.onCancel
+            f.onAccept, f.onCancel = nil, nil
+            if fn then pcall(fn) end
+        end)
         UI.CloseOnEscape(f)
         f:Hide()
         confirm = f
+    end
+    -- a dialog still open is replaced: it counts as cancelled
+    if confirm:IsShown() and confirm.onCancel then
+        local fn = confirm.onCancel
+        confirm.onCancel = nil
+        pcall(fn)
     end
     confirm.text:SetText(text)
     confirm.accept.label:SetText(acceptText or "Accept")
     confirm.cancel.label:SetText(cancelText or "Cancel")
     confirm.onAccept = onAccept
+    confirm.onCancel = onCancel
     confirm:Show()
+end
+
+-- "Sync to team" button, always in the bottom right corner of a settings
+-- page: accent coloured, with an icon. While a sync is being sent it shows
+-- the progress and is disabled. onClick() starts the sync.
+local syncButtons = {}
+
+function UI.SyncButton(page, text, onClick, tipTitle, tipText)
+    local b = CreateFrame("Button", nil, page)
+    b:SetSize(176, 26)
+    b:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", 0, 2)
+    b:SetFrameLevel(page:GetFrameLevel() + 10)
+    local bg = UI.Fill(b, A[1], A[2], A[3], 0.22)
+    UI.Border(b, A[1], A[2], A[3], 0.9)
+    local hl = b:CreateTexture(nil, "HIGHLIGHT")
+    hl:SetAllPoints()
+    hl:SetColorTexture(A[1], A[2], A[3], 0.25)
+    local icon = b:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(20, 20)
+    icon:SetPoint("LEFT", 3, 0)
+    icon:SetTexture("Interface\\Icons\\Spell_Arcane_Blink")
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    b.label = UI.Label(b, text, "GameFontNormal")
+    b.label:SetPoint("LEFT", icon, "RIGHT", 8, 0)
+    b.label:SetPoint("RIGHT", -6, 0)
+    b.label:SetJustifyH("CENTER")
+    b.label:SetTextColor(1, 1, 1)
+    b.text = text
+    b:SetScript("OnClick", function() if onClick then onClick() end end)
+    b:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOPRIGHT")
+        GameTooltip:SetText(tipTitle or text)
+        if tipText then GameTooltip:AddLine(tipText, 1, 1, 1, true) end
+        GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    b.Update = function()
+        local sent, total = 0, 0
+        if ns.SyncProgress then sent, total = ns.SyncProgress() end
+        if total > 0 then
+            b.label:SetText(("Sending %d/%d ..."):format(sent, total))
+            b:Disable()
+            bg:SetColorTexture(A[1], A[2], A[3], 0.10)
+            icon:SetDesaturated(true)
+        else
+            b.label:SetText(b.text)
+            b:Enable()
+            bg:SetColorTexture(A[1], A[2], A[3], 0.22)
+            icon:SetDesaturated(false)
+        end
+    end
+    b:SetScript("OnShow", b.Update)
+    syncButtons[#syncButtons + 1] = b
+    b.Update()
+    return b
+end
+
+function UI.UpdateSyncButtons()
+    for _, b in ipairs(syncButtons) do b.Update() end
 end
 
 -- Shift-click item links into an edit box: while the box has focus,

@@ -85,7 +85,7 @@ end
 -- MMT.UI (widgets), MMT.Listen("PROFILE_CHANGED", fn)
 ]]
 
-local COMM_TEXT = "Every client runs its own MMT. The core sends to your party or raid and whispers team members who aren't in the group. Only messages from characters in this client's team are passed on. Keep messages under 250 bytes and start them with your own tag. Taken: XP, XP2, BYE, PING, PONG, SYNC, EQREQ, EQD, EQS, QNQ, QNA, LH, LHGO, QTREQ, QTS, QTD, QTAB."
+local COMM_TEXT = "Every client runs its own MMT. The core sends to your party or raid and whispers team members who aren't in the group. Only messages from characters in this client's team are passed on. Keep messages under 250 bytes and start them with your own tag. Taken: XP, XP2, BYE, PING, PONG, SYNC, SYNCHI, SYNCACK, EQREQ, EQD, EQS, QNQ, QNA, LH, LHGO, QTREQ, QTS, QTD, QTAB."
 
 local COMM_CODE = [[
 -- send to the whole team (true = only members that are online)

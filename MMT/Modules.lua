@@ -9,7 +9,9 @@
 --     enabled in the AddOns list and loads after a UI reload.
 --
 -- A module calls MMT.NewModule{ name, title, description, defaults,
--- OnEnable, OnDisable, OnProfileChanged, Page(m, frame), Report(m, add) } and gets:
+-- OnEnable, OnDisable, OnProfileChanged, Page(m, frame), Report(m, add), sync } and gets:
+--   (sync = true: its settings page gets a "Sync to team" button and
+--    /mmt sync <name> shares m.db with the team; m.store is never sent)
 --   m.db        its settings in the active profile (profile.modules[name])
 --   m.store     account-wide storage (MMTDB.moduleData[name])
 --   m:On(event, fn) / m:Listen(callback, fn)   only run while enabled
@@ -186,6 +188,50 @@ function ns.SetModuleEnabled(entry, on)
     if entry.module then Stop(entry.module) end
     ns.Refresh()
     return "stopped"
+end
+
+---------------------------------------------------------------------------
+-- Settings sync of modules (modules opt in with sync = true in NewModule)
+---------------------------------------------------------------------------
+-- loaded modules that can share their settings
+function ns.SyncableModules()
+    local l = {}
+    for _, m in ipairs(ns.moduleList) do
+        if m.sync and m.db then l[#l + 1] = m end
+    end
+    return l
+end
+
+-- finds a syncable module by name or title, case and spaces ignored,
+-- also by the start of it ("quest" -> Quest Tracker)
+function ns.FindSyncModule(text)
+    local want = ns.NormKey(text)
+    if want == "" then return nil end
+    local found
+    for _, m in ipairs(ns.SyncableModules()) do
+        local n, t = ns.NormKey(m.name), ns.NormKey(m.title)
+        if n == want or t == want then return m end
+        if n:sub(1, #want) == want or t:sub(1, #want) == want then
+            if found and found ~= m then return nil, true end -- ambiguous
+            found = m
+        end
+    end
+    return found
+end
+
+-- replaces the module's settings in the active profile
+function ns.ImportModuleSettings(name, data)
+    local m = ns.modules[name]
+    if not m or type(data) ~= "table" then return false end
+    ns.db.modules = ns.db.modules or {}
+    ns.db.modules[name] = data
+    Bind(m)
+    if m.enabled and m.OnProfileChanged then
+        local ok, err = pcall(m.OnProfileChanged, m)
+        if not ok then ns.Debug("module %s OnProfileChanged error: %s", m.name, tostring(err)) end
+    end
+    ns.Refresh()
+    return true
 end
 
 function ns.ModuleActive(name)

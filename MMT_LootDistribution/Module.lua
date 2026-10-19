@@ -20,6 +20,7 @@ local M = MMT.NewModule({
     name = "LootDistribution",
     title = "Loot Distribution",
     description = "Sets the group loot method and gives master loot to team members by their roles.",
+    sync = true,   -- /mmt sync <module> and the Sync button share M.db with the team
     defaults = {
         autoMethod   = true,
         method       = "master",   -- freeforall | roundrobin | master

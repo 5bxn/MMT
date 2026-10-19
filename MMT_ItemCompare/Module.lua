@@ -9,6 +9,7 @@ mod.M = MMT.NewModule({
     name = "ItemCompare",
     title = "Item Compare",
     description = "Hover an item and press a key to see what every team member wears in that slot.",
+    sync = true,   -- /mmt sync <module> and the Sync button share M.db with the team
     defaults = {
         mode        = "HOLD",    -- HOLD: shown while the key is held | TOGGLE: key switches it on/off
         includeSelf = false,

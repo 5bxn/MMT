@@ -179,7 +179,7 @@ ns.RegisterPage("team", "Team", function(page)
     you:SetTextColor(0.5, 0.5, 0.5)
     ns.HoverMember(youHover, function() return ns.PlayerFull() end)
     col:Add(youHover, UI.ROW)
-    col:Note("Every account keeps its own team. Add the team on each client, or send it with Profiles > Sync to team.")
+    col:Note("Every account keeps its own team. Add the team on each client, or send it with Profiles > Sync to team (/mmt sync).")
 
     page.OnRefresh = function()
         local members = ns.SortedMembers()
@@ -645,9 +645,6 @@ ns.RegisterPage("profiles", "Profiles", function(page)
     end)
     delete:SetPoint("LEFT", reset, "RIGHT", 8, 0)
     UI.Tooltip(delete, "Delete profile", "Deletes the active profile. Default can't be deleted. Characters using it go back to Default.")
-    local sync = UI.Button(page, 160, "Sync to team (/mmt sync)", function() ns.SendProfileToTeam() end)
-    sync:SetPoint("LEFT", delete, "RIGHT", 8, 0)
-    UI.Tooltip(sync, "Sync to team", "Same as /mmt sync: sends the active profile to your group and online team members. Each of them gets a dialog to accept it.")
     col:Space(UI.ROW + 6)
 
     col:Header("Export / import")
@@ -682,6 +679,9 @@ ns.RegisterPage("profiles", "Profiles", function(page)
     status = StatusLine(page)
     status:SetWidth(PAGE_W)
     col:Add(status, UI.ROW)
+
+    UI.SyncButton(page, "Sync to team", function() ns.SendProfileToTeam() end, "Sync core settings",
+        "Same as /mmt sync: sends the core settings of the active profile (team, roles, XP window incl. its position, automations, distance window) to your group and online team members. Each of them gets a dialog to accept them. Module settings are not included: every module page has its own Sync button.")
 
     page.OnRefresh = function()
         if not copySource or copySource == ns.CurrentProfileName() or not MMTDB.profiles[copySource] then
