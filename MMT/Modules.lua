@@ -10,8 +10,14 @@
 --
 -- A module calls MMT.NewModule{ name, title, description, defaults,
 -- OnEnable, OnDisable, OnProfileChanged, Page(m, frame), Report(m, add), sync } and gets:
---   (sync = true: its settings page gets a "Sync to team" button and
---    /mmt sync <name> shares m.db with the team; m.store is never sent)
+--   sync = true            share m.db with the team: "Sync to team" button
+--                          on its page and /mmt sync <name> (m.store is never sent)
+--   syncExclude = { keys } settings in m.db that stay on each client (window
+--                          positions, per-machine options); not sent, not overwritten
+--   OnSyncReceived(m, from) optional: runs after the team's settings were applied
+--                          (OnProfileChanged runs before it, as on a profile switch)
+--   m:SyncToTeam()         sends the settings (what the button does)
+--   m:SyncButton(frame)    the button, for pages the core doesn't build
 --   m.db        its settings in the active profile (profile.modules[name])
 --   m.store     account-wide storage (MMTDB.moduleData[name])
 --   m:On(event, fn) / m:Listen(callback, fn)   only run while enabled
@@ -80,6 +86,31 @@ function Module:Heartbeat(key, fn)
 end
 
 function Module:Debug(fmt, ...) ns.Debug("[" .. self.name .. "] " .. fmt, ...) end
+
+-- Settings sync (sync = true). The core adds the button to pages it builds
+-- (m.Page); call m:SyncButton(frame) yourself only for a frame of your own.
+function Module:SyncToTeam()
+    if not self.sync then
+        ns.Print("%s doesn't share its settings (sync = true is missing in MMT.NewModule).", self.title)
+        return false
+    end
+    return ns.SendModuleSettings(self)
+end
+
+function Module:SyncButton(frame)
+    if not self.sync or frame.mmtSyncButton then return frame.mmtSyncButton end
+    frame.mmtSyncButton = ns.UI.SyncButton(frame, "Sync to team", function() self:SyncToTeam() end,
+        "Sync " .. self.title .. " settings",
+        ("Same as /mmt sync %s: sends only the %s settings of your active profile to your group and online team members. Each of them gets a dialog to accept them. Core settings and other modules are not touched."):format(self.name:lower(), self.title))
+    return frame.mmtSyncButton
+end
+
+-- the settings that travel: m.db without syncExclude keys
+function Module:SyncData()
+    local data = ns.CopyTable(self.db)
+    for _, k in ipairs(self.syncExclude or {}) do data[k] = nil end
+    return data
+end
 
 local function Bind(m)
     -- settings live in the active profile, storage is account-wide
@@ -219,16 +250,23 @@ function ns.FindSyncModule(text)
     return found
 end
 
--- replaces the module's settings in the active profile
-function ns.ImportModuleSettings(name, data)
+-- replaces the module's settings in the active profile; syncExclude keys
+-- keep this client's values. from = full name of the sender (or nil).
+function ns.ImportModuleSettings(name, data, from)
     local m = ns.modules[name]
     if not m or type(data) ~= "table" then return false end
     ns.db.modules = ns.db.modules or {}
+    local old = ns.db.modules[name] or {}
+    for _, k in ipairs(m.syncExclude or {}) do data[k] = old[k] end
     ns.db.modules[name] = data
     Bind(m)
     if m.enabled and m.OnProfileChanged then
         local ok, err = pcall(m.OnProfileChanged, m)
         if not ok then ns.Debug("module %s OnProfileChanged error: %s", m.name, tostring(err)) end
+    end
+    if m.OnSyncReceived then
+        local ok, err = pcall(m.OnSyncReceived, m, from)
+        if not ok then ns.Debug("module %s OnSyncReceived error: %s", m.name, tostring(err)) end
     end
     ns.Refresh()
     return true

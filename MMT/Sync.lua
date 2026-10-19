@@ -3,8 +3,9 @@
 --   /mmt sync            core settings of the active profile (team, roles,
 --                        XP window incl. position, automations, distance
 --                        window ...). Settings of modules are NOT included.
---   /mmt sync <module>   only the settings of that module (modules opt in
---                        with sync = true), e.g. /mmt sync questtracker
+--   /mmt sync <module>   only the settings of that module, e.g.
+--                        /mmt sync questtracker. Modules opt in with
+--                        sync = true; see Modules.lua for the module API.
 --
 -- Why a send queue: the game allows a short burst of about 10 addon messages
 -- per prefix and then roughly one per second. Everything above that is
@@ -241,7 +242,7 @@ end
 
 function ns.SendModuleSettings(m)
     if not (m and m.db) then return end
-    local payload = "MMTM1:" .. m.name .. ":" .. ns.Serialize(m.db)
+    local payload = "MMTM1:" .. m.name .. ":" .. ns.Serialize(m:SyncData())
     return Start("mod:" .. m.name, KindLabel("mod:" .. m.name), payload)
 end
 
@@ -355,7 +356,7 @@ local function Complete(t)
                 t.who, m.title, m.title, ns.CurrentProfileName()),
             "Accept settings",
             function()
-                if ns.ImportModuleSettings(modName, data) then
+                if ns.ImportModuleSettings(modName, data, t.who) then
                     ns.Print("%s settings from %s applied.", m.title, Name(t.who))
                     Answer(t, "ACCEPT")
                 end

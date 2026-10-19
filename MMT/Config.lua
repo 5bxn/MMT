@@ -25,11 +25,7 @@ local function RegisterModulePages()
             pages["mod:" .. m.name] = { key = "mod:" .. m.name, title = m.title, module = m,
                 build = function(frame)
                     m.Page(m, frame)
-                    if m.sync then
-                        UI.SyncButton(frame, "Sync to team", function() ns.SendModuleSettings(m) end,
-                            "Sync " .. m.title .. " settings",
-                            ("Same as /mmt sync %s: sends only the %s settings of your active profile to your group and online team members. Each of them gets a dialog to accept them. Core settings and other modules are not touched."):format(m.name:lower(), m.title))
-                    end
+                    m:SyncButton(frame)   -- only with sync = true
                 end }
         end
     end
@@ -335,7 +331,7 @@ SlashCmdList.MMT = function(msg)
         else
             local m, ambiguous = ns.FindSyncModule(arg)
             if m then
-                ns.SendModuleSettings(m)
+                m:SyncToTeam()
             else
                 local names = {}
                 for _, mod in ipairs(ns.SyncableModules()) do names[#names + 1] = mod.name:lower() end

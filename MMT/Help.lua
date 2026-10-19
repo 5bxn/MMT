@@ -48,6 +48,8 @@ local M = MMT.NewModule({
     title = "Example",
     description = "One line for Manage modules.",
     defaults = { greeting = true },   -- per profile, read/write M.db
+    sync = true,                      -- optional: share M.db with the team
+    syncExclude = { "point" },        -- optional: keys that stay per client
 })
 
 -- M.db     settings in the active profile (defaults merged in)
@@ -70,6 +72,14 @@ M.Page = function(self, page)
         function() return M.db.greeting end,
         function(v) M.db.greeting = v end)
 end
+
+-- Settings sync (with sync = true): the core adds a "Sync to team"
+-- button in the bottom right of M.Page and /mmt sync example. Only M.db
+-- is sent (never M.store); the recipient accepts in a dialog. Optional:
+M.OnSyncReceived = function(self, from)   -- after the team's settings
+    MMT.Print("Example settings from %s applied.", from or "?")
+end
+-- For a frame of your own: M:SyncButton(frame), or M:SyncToTeam().
 
 -- optional lines for /mmt debug dump
 M.Report = function(self, add)
