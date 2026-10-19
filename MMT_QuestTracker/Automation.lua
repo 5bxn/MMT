@@ -268,6 +268,50 @@ if hooksecurefunc then
     if AbandonQuest then hooksecurefunc("AbandonQuest", OnAbandoned) end
 end
 
+---------------------------------------------------------------------------
+-- Tracker actions: open a quest in the quest log, abandon one
+---------------------------------------------------------------------------
+function mod.OpenInQuestLog(questID)
+    if InCombatLockdown() then
+        MMT.Print("The quest log is opened from the tracker outside combat only.")
+        return
+    end
+    local ok, err = pcall(function()
+        if QuestMapFrame_OpenToQuestDetails then              -- quest log in the world map
+            QuestMapFrame_OpenToQuestDetails(questID)
+            return
+        end
+        local index = LogIndex(questID)
+        if not index or index <= 0 then return end
+        if QuestLog_OpenToQuest then QuestLog_OpenToQuest(index) return end
+        if QuestLogFrame and not QuestLogFrame:IsShown() and ToggleQuestLog then ToggleQuestLog() end
+        if SelectQuestLogEntry then SelectQuestLogEntry(index) end
+        if QuestLog_Update then QuestLog_Update() end
+    end)
+    M:Debug("open quest %s in log -> %s %s", tostring(questID), tostring(ok), tostring(err or ""))
+end
+
+-- Shift-right-click in the tracker. Abandoning goes through the game's normal
+-- abandon calls, so "Abandon quests on the whole team" asks afterwards as usual.
+function mod.AskAbandon(questID, title)
+    local link = mod.QuestLink(questID, title)
+    MMT.UI.Confirm(("Abandon %s?"):format(link), "Yes", function()
+        local ok, err = pcall(function()
+            Select(questID)
+            if C_QuestLog and C_QuestLog.SetAbandonQuest and C_QuestLog.AbandonQuest then
+                C_QuestLog.SetAbandonQuest()
+                C_QuestLog.AbandonQuest()
+            else
+                SetAbandonQuest()
+                AbandonQuest()
+            end
+        end)
+        M:Debug("abandon %s from tracker -> %s %s", tostring(questID), tostring(ok), tostring(err or ""))
+        if ok then MMT.Print("Abandoned %s.", link) else MMT.Print("Couldn't abandon %s: %s", link, tostring(err)) end
+        mod.ScanSoon()
+    end, "No")
+end
+
 -- a teammate asks to abandon a quest
 local function AbandonHere(questID, key)
     local index = LogIndex(questID)

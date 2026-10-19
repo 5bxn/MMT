@@ -51,8 +51,15 @@ Saved data from MMT 0.1.x is converted automatically.
   refuses a hand-out, that character is skipped for that item for 10 minutes.
 - **Quest Tracker** (module): replaces the Blizzard quest tracker with a team tracker:
   Zone > [Level] Quest > Objective > one row per team member with their progress
-  ("3/8", "done", "not on quest"). Click any zone, quest or objective to collapse or
-  expand it, shift-click a quest to link it, click the header to collapse/expand all.
+  ("3/8", "done", "not on quest"). Mouse:
+  - +/- at the start of a line: collapse / expand it; [-] / [+] on the header: collapse
+    everything down to the zones / open everything.
+  - Shift + drag: move the tracker (unless locked). Right-click: settings.
+  - Quest: click opens it in the quest log, Shift-click links it in chat,
+    Shift-right-click abandons it (asks first).
+  - Zone: Ctrl-click collapses / expands all its quests (only the quest names),
+    Ctrl-right-click shows only that zone (again: all zones). The quest log's tracked
+    quests aren't changed by this.
   Background colour and opacity, width, maximum height (scrolls beyond), indent,
   alignment, outline, and font, size and colour for each of the four levels.
   Quest automation lives here too: accept from NPCs and from the group, turn in, skip

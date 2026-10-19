@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: MMT - Quest Tracker
 ## Notes: MMT module: team quest tracker (zone > quest > objective > progress of every team member) and quest automation (accept, turn in, share, abandon on the whole team).
-## Version: 1.0.0
+## Version: 1.1.0
 ## X-License: GPL-3.0
 ## Dependencies: MMT
 ## X-MMT-Module: 1

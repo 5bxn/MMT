@@ -5,10 +5,17 @@
 --       Objective
 --         Member   3/8        (one row per team member)
 --
--- Zones, quests and objectives collapse/expand with a click (state kept in
--- M.store.collapsed). Shift-click a quest to link it in chat. The mouse wheel
--- scrolls when the list is taller than the maximum height. The header
--- collapses/expands everything; right-click opens the settings.
+-- Mouse:
+--   +/- at the start of a line     collapse / expand that line (state in M.store.collapsed)
+--   [-] / [+] on the header        everything down to the zones / everything open
+--   Shift + drag                   move the window (unless locked)
+--   quest: click                   open it in the quest log
+--   quest: Shift-click             link it in chat
+--   quest: Shift-right-click       abandon it (asks first)
+--   zone:  Ctrl-click              collapse / expand all quests of that zone
+--   zone:  Ctrl-right-click        focus the zone (only its quests), again = all zones
+--   right-click elsewhere          settings
+-- The mouse wheel scrolls when the list is taller than the maximum height.
 -- The Blizzard quest tracker is moved into a hidden frame (re-parenting out of
 -- combat; nothing of Blizzard's code is replaced).
 
@@ -36,8 +43,19 @@ local function SavePosition(self)
     local point, _, relPoint, x, y = self:GetPoint()
     M.db.point = { point, relPoint, math.floor(x + 0.5), math.floor(y + 0.5) }
 end
-f:SetScript("OnDragStart", function(self) if not M.db.locked then self:StartMoving() end end)
-f:SetScript("OnDragStop", SavePosition)
+local dragging, dragEnd = false, 0
+f:SetScript("OnDragStart", function(self)
+    if M.db.locked or not IsShiftKeyDown() then return end -- moving needs Shift
+    dragging = true
+    self:StartMoving()
+end)
+f:SetScript("OnDragStop", function(self)
+    if not dragging then return end
+    dragging, dragEnd = false, GetTime()
+    SavePosition(self)
+end)
+-- a click that ends a drag is not a click
+local function JustDragged() return dragging or GetTime() - dragEnd < 0.2 end
 f:SetScript("OnMouseUp", function(_, button) if button == "RightButton" then MMT.ToggleConfig("QuestTracker") end end)
 f:SetScript("OnMouseWheel", function(self, delta)
     self.offset = math.max(0, self.offset - delta)
@@ -62,6 +80,24 @@ function mod.SetAllCollapsed(on, zones)
     local c = Collapsed()
     wipe(c)
     if on then for _, z in ipairs(zones or {}) do c["z:" .. z] = true end end
+    f.offset = 0
+    mod.Redraw()
+end
+
+-- Ctrl-click on a zone: all its quests collapsed (only the quest names), or all open again
+function mod.ToggleZoneQuests(zone, questIDs)
+    local c = Collapsed()
+    local allClosed = #questIDs > 0
+    for _, id in ipairs(questIDs) do if not c["q:" .. id] then allClosed = false end end
+    c["z:" .. zone] = nil
+    for _, id in ipairs(questIDs) do c["q:" .. id] = (not allClosed) or nil end
+    mod.Redraw()
+end
+
+-- Ctrl-right-click on a zone: only that zone's quests; again = all zones.
+-- Kept in the tracker only (the quest log's tracked quests stay as they are).
+function mod.FocusZone(zone)
+    if M.store.focusZone == zone then M.store.focusZone = nil else M.store.focusZone = zone end
     f.offset = 0
     mod.Redraw()
 end
@@ -168,7 +204,13 @@ function mod.BuildEntries()
     local entries = {}
     local function Add(e) entries[#entries + 1] = e return e end
 
+    -- focus on one zone (ignored when that zone has no quests any more)
+    local focus = M.store.focusZone
+    if focus and not byZone[focus] then focus = nil end
+    mod.activeFocus = focus
+
     for _, zone in ipairs(zones) do
+      if not focus or zone == focus then
         local zkey = "z:" .. zone
         Add({ kind = "zone", key = zkey, text = zone, indent = 0, collapsible = true, collapsed = collapsed[zkey] })
         if not collapsed[zkey] then
@@ -225,8 +267,9 @@ function mod.BuildEntries()
                 end
             end
         end
+      end
     end
-    return entries, zones
+    return entries, zones, byZone
 end
 
 ---------------------------------------------------------------------------
@@ -256,13 +299,60 @@ local function RowTooltip(row)
         end
         GameTooltip:AddLine(("%d of %d shown team members are on it."):format(have, total), 1, 1, 1)
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Click: collapse / expand. Shift-click: link in chat.", 0.5, 0.5, 0.5)
+        if e.mine then
+            GameTooltip:AddLine("Click: open in the quest log", 0.5, 0.5, 0.5)
+            GameTooltip:AddLine("Shift-click: link in chat", 0.5, 0.5, 0.5)
+            GameTooltip:AddLine("Shift-right-click: abandon", 0.5, 0.5, 0.5)
+        else
+            GameTooltip:AddLine("Shift-click: link in chat", 0.5, 0.5, 0.5)
+        end
+    elseif e.kind == "zone" then
+        GameTooltip:SetText(e.text, 1, 0.82, 0)
+        GameTooltip:AddLine("Ctrl-click: collapse / expand all quests of this zone", 0.5, 0.5, 0.5)
+        GameTooltip:AddLine(mod.activeFocus == e.text and "Ctrl-right-click: show all zones again"
+            or "Ctrl-right-click: show only this zone", 0.5, 0.5, 0.5)
+    elseif e.kind == "header" then
+        GameTooltip:SetText("Quests", 1, 0.82, 0)
+        if mod.activeFocus then GameTooltip:AddLine("Showing only: " .. mod.activeFocus, 1, 1, 1) end
     else
         GameTooltip:SetText(row.text:GetText() or "", 1, 1, 1)
-        GameTooltip:AddLine("Click: collapse / expand.", 0.5, 0.5, 0.5)
     end
-    if not M.db.locked then GameTooltip:AddLine("Drag to move, right-click for settings.", 0.5, 0.5, 0.5) end
+    GameTooltip:AddLine("+ / - at the start of a line: collapse / expand", 0.5, 0.5, 0.5)
+    if not M.db.locked then GameTooltip:AddLine("Shift-drag to move, right-click for settings", 0.5, 0.5, 0.5)
+    else GameTooltip:AddLine("Right-click for settings", 0.5, 0.5, 0.5) end
     GameTooltip:Show()
+end
+
+local function OnRowClick(self, button)
+    if JustDragged() then return end
+    local e = self.entry
+    if not e then return end
+    local shift, ctrl = IsShiftKeyDown(), IsControlKeyDown()
+    if e.kind == "zone" and ctrl then
+        if button == "RightButton" then mod.FocusZone(e.text)
+        else
+            local _, _, byZone = mod.BuildEntries()
+            mod.ToggleZoneQuests(e.text, byZone[e.text] or {})
+        end
+        return
+    end
+    if e.kind == "quest" then
+        if button == "RightButton" and shift then
+            if e.mine then mod.AskAbandon(e.questID, e.title) end
+            return
+        end
+        if button == "LeftButton" and shift then
+            local link = mod.QuestLink(e.questID, e.title)
+            if ChatEdit_InsertLink then ChatEdit_InsertLink(link) end
+            return
+        end
+        if button == "LeftButton" then
+            if e.mine then mod.OpenInQuestLog(e.questID)
+            else MMT.Print("%s is not in your quest log (only teammates have it).", mod.QuestLink(e.questID, e.title)) end
+            return
+        end
+    end
+    if button == "RightButton" and not shift and not ctrl then MMT.ToggleConfig("QuestTracker") end
 end
 
 local function Row(i)
@@ -270,40 +360,65 @@ local function Row(i)
     if row then return row end
     row = CreateFrame("Button", nil, f)
     row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-    row.marker = row:CreateFontString(nil, "OVERLAY")
-    row.marker:SetJustifyH("LEFT")
     row.text = row:CreateFontString(nil, "OVERLAY")
     row.text:SetWordWrap(false)
     local hl = row:CreateTexture(nil, "HIGHLIGHT")
     hl:SetAllPoints()
     hl:SetColorTexture(1, 1, 1, 0.05)
-    row:SetScript("OnClick", function(self, button)
-        local e = self.entry
-        if button == "RightButton" then MMT.ToggleConfig("QuestTracker") return end
-        if not e then return end
-        if e.kind == "header" then
-            local _, zones = mod.BuildEntries()
-            local anyOpen = false
-            for _, z in ipairs(zones) do if not Collapsed()["z:" .. z] then anyOpen = true end end
-            mod.SetAllCollapsed(anyOpen, zones)
-            return
-        end
-        if e.kind == "quest" and IsShiftKeyDown() then
-            local link = mod.QuestLink(e.questID, e.title)
-            if ChatEdit_InsertLink then ChatEdit_InsertLink(link) end
-            return
-        end
-        if e.collapsible then mod.Toggle(e.key) end
+    row:SetScript("OnClick", OnRowClick)
+
+    -- +/- : the only place that collapses / expands a line
+    row.toggle = CreateFrame("Button", nil, row)
+    row.toggle:SetFrameLevel(row:GetFrameLevel() + 2)
+    row.toggle:RegisterForClicks("LeftButtonUp")
+    row.marker = row.toggle:CreateFontString(nil, "OVERLAY")
+    row.marker:SetPoint("CENTER")
+    local thl = row.toggle:CreateTexture(nil, "HIGHLIGHT")
+    thl:SetAllPoints()
+    thl:SetColorTexture(1, 1, 1, 0.12)
+    row.toggle:SetScript("OnClick", function()
+        local e = row.entry
+        if e and e.collapsible then mod.Toggle(e.key) end
     end)
+
+    -- header: [-] collapse everything down to the zones / [+] open everything
+    row.all = CreateFrame("Button", nil, row)
+    row.all:SetFrameLevel(row:GetFrameLevel() + 2)
+    row.all.text = row.all:CreateFontString(nil, "OVERLAY")
+    row.all.text:SetPoint("RIGHT")
+    local ahl = row.all:CreateTexture(nil, "HIGHLIGHT")
+    ahl:SetAllPoints()
+    ahl:SetColorTexture(1, 1, 1, 0.12)
+    row.all:SetScript("OnClick", function()
+        local _, zones = mod.BuildEntries()
+        mod.SetAllCollapsed(not mod.AllCollapsed(zones), zones)
+    end)
+    row.all:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+        local _, zones = mod.BuildEntries()
+        GameTooltip:SetText(mod.AllCollapsed(zones) and "Expand all" or "Collapse all to zones")
+        GameTooltip:Show()
+    end)
+    row.all:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    row.all:Hide()
+
     row:RegisterForDrag("LeftButton")
     row:SetScript("OnDragStart", function() f:GetScript("OnDragStart")(f) end)
-    row:SetScript("OnDragStop", function() SavePosition(f) end)
+    row:SetScript("OnDragStop", function() f:GetScript("OnDragStop")(f) end)
     row:SetScript("OnEnter", RowTooltip)
     row:SetScript("OnLeave", function() GameTooltip:Hide() end)
     row:EnableMouseWheel(true)
     row:SetScript("OnMouseWheel", function(_, delta) f:GetScript("OnMouseWheel")(f, delta) end)
     f.rows[i] = row
     return row
+end
+
+-- true when every zone is collapsed (the [-] / [+] button shows [+] then)
+function mod.AllCollapsed(zones)
+    local c = Collapsed()
+    if not zones or #zones == 0 then return false end
+    for _, z in ipairs(zones) do if not c["z:" .. z] then return false end end
+    return true
 end
 
 local function Style(level)
@@ -330,14 +445,31 @@ local function FillRow(row, e, y, width)
     row.marker:SetTextColor(0.55, 0.55, 0.55)
 
     local left = (e.indent or 0) * cfg.indent
-    row.marker:ClearAllPoints()
-    row.marker:SetPoint("LEFT", left, 0)
+    row.toggle:ClearAllPoints()
+    row.toggle:SetPoint("LEFT", left - 2, 0)
+    row.toggle:SetSize(MARKER_W + 2, h)
     row.marker:SetText(e.collapsible and (e.collapsed and "+" or "-") or "")
+    row.toggle:SetShown(e.collapsible and true or false)
+    row.toggle:EnableMouse(not cfg.clickThrough)
+    if not e.collapsible then row.marker:SetText("") end
     local textLeft = left + ((e.collapsible or e.kind == "member") and MARKER_W or 0)
     if e.kind == "header" then textLeft = 0 end
+    local right = 0
+    if e.kind == "header" then
+        MMT.ApplyFont(row.all.text, st.font, st.size, cfg.outline)
+        row.all.text:SetText(e.allCollapsed and "[+]" or "[-]")
+        row.all.text:SetTextColor(0.7, 0.7, 0.7)
+        row.all:ClearAllPoints()
+        row.all:SetPoint("RIGHT", 0, 0)
+        row.all:SetSize(row.all.text:GetStringWidth() + 6, h)
+        row.all:SetShown(not cfg.clickThrough)
+        right = -(row.all:GetWidth() + 4)
+    else
+        row.all:Hide()
+    end
     row.text:ClearAllPoints()
     row.text:SetPoint("LEFT", textLeft, 0)
-    row.text:SetPoint("RIGHT", 0, 0)
+    row.text:SetPoint("RIGHT", right, 0)
     row.text:SetJustifyH(cfg.align or "LEFT")
     row.text:SetText(e.text)
     row:Show()
@@ -355,7 +487,7 @@ end
 local function Draw()
     local cfg = M.db
     if not (M.enabled and cfg.show and MMT.ready) then f:Hide() return end
-    local entries = mod.BuildEntries()
+    local entries, zones = mod.BuildEntries()
     local ownCount = #(mod.ownOrder or {})
     if #entries == 0 and ownCount == 0 then f:Hide() return end
 
@@ -365,7 +497,9 @@ local function Draw()
     local header
     if cfg.showHeader then
         i = i + 1
-        header = { kind = "header", text = ("Quests  %s%d/%d|r"):format(GREY, ownCount, MaxQuests()) }
+        header = { kind = "header", text = ("Quests  %s%d/%d|r"):format(GREY, ownCount, MaxQuests())
+            .. (mod.activeFocus and ("  " .. GREY .. "(" .. mod.activeFocus .. ")|r") or ""),
+            allCollapsed = mod.AllCollapsed(zones) }
         y = y + FillRow(Row(i), header, y, width) + 2
     end
 
