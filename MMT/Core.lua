@@ -4,7 +4,7 @@
 local ADDON, ns = ...
 _G.MMT = ns
 ns.title = "MMT"
-ns.version = "0.7.0"
+ns.version = "0.7.1"
 ns.prefix = "MMT"
 
 ---------------------------------------------------------------------------

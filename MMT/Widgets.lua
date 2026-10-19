@@ -703,3 +703,43 @@ function UI.AcceptItemLinks(box, onLink)
     if ChatEdit_InsertLink then hooksecurefunc("ChatEdit_InsertLink", OnInsertLink) end
     if ChatFrameUtil and ChatFrameUtil.InsertLink then hooksecurefunc(ChatFrameUtil, "InsertLink", OnInsertLink) end
 end
+
+-- Text to copy (links can't be opened from the game): shows it selected in an
+-- edit box; Ctrl+C copies, Escape or Enter closes.
+local copyBox
+function UI.CopyText(title, text)
+    if not copyBox then
+        local f = CreateFrame("Frame", "MMTCopyFrame", UIParent)
+        f:SetSize(420, 96)
+        f:SetPoint("TOP", 0, -180)
+        f:SetFrameStrata("FULLSCREEN_DIALOG")
+        f:EnableMouse(true)
+        UI.Fill(f, 0.05, 0.05, 0.06, 0.96)
+        UI.Border(f, A[1], A[2], A[3], 0.6)
+        f.title = UI.Label(f, "", "GameFontNormal")
+        f.title:SetPoint("TOPLEFT", 14, -12)
+        local hint = UI.Label(f, "Press Ctrl+C to copy, then paste it into your browser.")
+        hint:SetPoint("BOTTOMLEFT", 14, 12)
+        hint:SetTextColor(0.6, 0.6, 0.6)
+        local close = UI.TextButton(f, "x", function() f:Hide() end, 18)
+        close:SetPoint("TOPRIGHT", -6, -6)
+        f.edit = UI.EditBox(f, 392, "", function() f:Hide() end)
+        f.edit:SetPoint("TOPLEFT", 14, -36)
+        f.edit:SetScript("OnEscapePressed", function() f:Hide() end)
+        -- keep the text unchanged and selected
+        f.edit:SetScript("OnTextChanged", function(self, user)
+            if user then self:SetText(f.value); self:HighlightText() end
+        end)
+        f.edit:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+        f:SetScript("OnHide", function() f.edit:ClearFocus() end)
+        copyBox = f
+    end
+    local f = copyBox
+    f.value = text
+    f.title:SetText(title or "")
+    f:SetScale((ns.ConfigScale and ns.ConfigScale()) or 1)
+    f:Show()
+    f.edit:SetText(text)
+    f.edit:SetFocus()
+    f.edit:HighlightText()
+end

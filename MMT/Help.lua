@@ -35,6 +35,9 @@ local MODULE_CODE = [[
 ## Interface: 16001
 ## Title: MMT - Example
 ## Notes: One line about the module.
+## Version: 1.0.0
+## Author: YourName
+## X-Repository: https://github.com/you/your-repo
 ## Dependencies: MMT
 ## X-MMT-Module: 1
 ## X-MMT-Title: Example

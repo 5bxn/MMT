@@ -172,7 +172,31 @@ end)
 ---------------------------------------------------------------------------
 -- Installed modules (also those that aren't loaded)
 ---------------------------------------------------------------------------
--- returns a list of { addon, title, notes, loaded, enabled (AddOns list), module, reason }
+-- Repository links for modules whose TOC has no "## X-Repository:" yet, by author.
+-- Authors: add "## X-Repository: https://..." to your TOC instead.
+local KNOWN_REPOS = {
+    bnetworking = "https://github.com/bnetworking/MMT",
+    quiding = "https://github.com/Quiding/mmt_modules",
+}
+
+local function Meta(addon, field)
+    local ok, v = pcall(GetMetadata, addon, field)
+    if ok and type(v) == "string" and v ~= "" then return v end
+    return nil
+end
+
+-- version, author, repository link of an addon (each nil if unknown)
+function ns.AddOnInfo(addon)
+    local version = Meta(addon, "Version")
+    local author = Meta(addon, "Author")
+    local repo = Meta(addon, "X-Repository") or Meta(addon, "X-Website") or Meta(addon, "X-URL")
+        or (author and KNOWN_REPOS[author:lower()])
+    if author then author = author:gsub("|", "") end
+    return version, author, repo
+end
+
+-- returns a list of { addon, title, notes, loaded, enabled (AddOns list), module, reason,
+--                     version, author, repo }
 function ns.InstalledModules()
     local list, seen = {}, {}
     for i = 1, (GetNumAddOns and GetNumAddOns() or 0) do
@@ -189,6 +213,8 @@ function ns.InstalledModules()
                 module = m,
                 reason = reason,
             }
+            local e = list[#list]
+            e.version, e.author, e.repo = ns.AddOnInfo(name)
             seen[name] = true
         end
     end
@@ -200,6 +226,16 @@ function ns.InstalledModules()
         end
     end
     table.sort(list, function(a, b) return a.title < b.title end)
+    return list
+end
+
+-- modules whose switch only takes effect after a UI reload: switched on in the
+-- AddOns list but not loaded yet
+function ns.PendingReload()
+    local list = {}
+    for _, e in ipairs(ns.InstalledModules()) do
+        if e.enabled and not e.loaded then list[#list + 1] = e.title end
+    end
     return list
 end
 

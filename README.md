@@ -1,7 +1,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.7.0: core addon (MMT) plus optional modules (MMT_*).
+Version 0.7.1: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -19,7 +19,9 @@ Saved data from MMT 0.1.x is converted automatically.
   appear in the game's AddOns list and under MODULES in /mmt, where switched-off
   modules are greyed out. Switching one off in /mmt stops it right away and disables
   it for the next login; switching one on starts it right away, or after a reload if
-  it wasn't loaded. "Manage modules" lists all installed modules.
+  it wasn't loaded. "Manage modules" lists all installed modules with version, author and
+  repository link (TOC fields `## Version`, `## Author`, `## X-Repository`; click the link
+  to copy it). When a switch needs a UI reload, a "Reload UI" bar appears at the bottom.
 - Modules so far: **Item Compare** (`MMT_ItemCompare`), **Loot Distribution** (`MMT_LootDistribution`),
   **Quest Tracker** (`MMT_QuestTracker`).
 - Settings sync for modules: add `sync = true` to `MMT.NewModule{...}` and the module gets

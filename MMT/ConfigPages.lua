@@ -706,10 +706,46 @@ ns.RegisterPage("modules", "Modules", function(page)
     col:Note("Modules add features on top of the core. Each one is its own addon (folder MMT_<Name>), so it can also be switched on and off in the game's AddOns list.")
 
     local status
-    local rows = {}
-    for i = 1, 8 do
-        local row = CreateFrame("Frame", nil, page)
-        row:SetSize(PAGE_W, 46)
+
+    -- "github.com/..." link: click shows it ready to copy (the game can't open links)
+    local function LinkButton(parent)
+        local b = CreateFrame("Button", nil, parent)
+        b:SetHeight(14)
+        b.text = UI.Label(b, "")
+        b.text:SetPoint("LEFT")
+        b.text:SetTextColor(A[1], A[2], A[3])
+        b:SetScript("OnClick", function(self) if self.url then UI.CopyText(self.label or "Repository", self.url) end end)
+        b:SetScript("OnEnter", function(self)
+            self.text:SetTextColor(1, 1, 1)
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            GameTooltip:SetText(self.url or "")
+            GameTooltip:AddLine("Click to copy the link.", 0.7, 0.7, 0.7)
+            GameTooltip:Show()
+        end)
+        b:SetScript("OnLeave", function(self) self.text:SetTextColor(A[1], A[2], A[3]); GameTooltip:Hide() end)
+        b.Set = function(self, url, label)
+            self.url, self.label = url, label
+            self.text:SetText(url and url:gsub("^https?://", ""):gsub("/$", "") or "")
+            self:SetWidth(self.text:GetStringWidth() + 2)
+            self:SetShown(url ~= nil)
+        end
+        return b
+    end
+
+    -- core line
+    local core = CreateFrame("Frame", nil, page)
+    core:SetSize(PAGE_W, 18)
+    core.text = UI.Label(core, "")
+    core.text:SetPoint("LEFT", 8, 0)
+    core.text:SetTextColor(0.7, 0.7, 0.7)
+    core.link = LinkButton(core)
+    core.link:SetPoint("LEFT", core.text, "RIGHT", 6, 0)
+    col:Add(core, 24)
+
+    -- module rows (scroll with the mouse wheel when there are more)
+    local ROWS, ROW_H = 7, 58
+    local function MakeRow(list, i)
+        local row = CreateFrame("Frame", nil, list)
         RowBackground(row, i)
         row.check = UI.Check(row, 24, "", function() return row.entry and row.on end, function(v)
             if not row.entry then return end
@@ -726,56 +762,109 @@ ns.RegisterPage("modules", "Modules", function(page)
         row.check:SetPoint("TOPLEFT", 8, -6)
         row.title = UI.Label(row, "", "GameFontNormal")
         row.title:SetPoint("TOPLEFT", 34, -8)
+        row.version = UI.Label(row, "")
+        row.version:SetPoint("LEFT", row.title, "RIGHT", 6, 0)
+        row.version:SetTextColor(0.5, 0.5, 0.5)
         row.state = UI.Label(row, "")
         row.state:SetPoint("TOPRIGHT", -8, -8)
         row.notes = UI.Label(row, "")
-        row.notes:SetPoint("TOPLEFT", 34, -26)
+        row.notes:SetPoint("TOPLEFT", 34, -24)
         row.notes:SetPoint("RIGHT", -8, 0)
         row.notes:SetJustifyH("LEFT")
         row.notes:SetWordWrap(false)
         row.notes:SetTextColor(0.6, 0.6, 0.6)
-        col:Add(row, 48)
-        rows[i] = row
+        row.author = UI.Label(row, "")
+        row.author:SetPoint("TOPLEFT", 34, -39)
+        row.author:SetTextColor(0.5, 0.5, 0.5)
+        row.link = LinkButton(row)
+        row.link:SetPoint("LEFT", row.author, "RIGHT", 6, 0)
+        -- notes are cut to one line: the full text in the tooltip
+        row:EnableMouse(true)
+        row:SetScript("OnEnter", function(self)
+            local e = self.entry
+            if not e then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(e.title .. (e.version and ("  v" .. e.version) or ""))
+            if e.notes ~= "" then GameTooltip:AddLine(e.notes, 1, 1, 1, true) end
+            GameTooltip:AddLine("Addon folder: " .. e.addon, 0.6, 0.6, 0.6)
+            if e.author then GameTooltip:AddLine("Author: " .. e.author, 0.6, 0.6, 0.6) end
+            GameTooltip:Show()
+        end)
+        row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        return row
     end
+    local function FillRow(row, e)
+        row.entry = e
+        local active = e.module and e.module.enabled
+        row.on = active or (not e.loaded and e.enabled)
+        row.title:SetText(e.title)
+        row.version:SetText(e.version and ("v" .. e.version) or "")
+        row.notes:SetText(e.notes)
+        row.author:SetText(e.author and ("by " .. e.author) or "author unknown")
+        row.link:Set(e.repo, e.title .. " repository")
+        if active then
+            row.state:SetText("on"); row.state:SetTextColor(0.4, 1, 0.4)
+        elseif e.loaded then
+            row.state:SetText("off"); row.state:SetTextColor(0.6, 0.6, 0.6)
+        elseif e.enabled then
+            row.state:SetText("loads after reload"); row.state:SetTextColor(1, 0.85, 0.2)
+        else
+            row.state:SetText("off (not loaded)"); row.state:SetTextColor(0.6, 0.6, 0.6)
+        end
+        row.check.Refresh()
+    end
+    local list = List(page, PAGE_W, ROWS, ROW_H, MakeRow, FillRow)
+    col:Add(list, ROWS * ROW_H + 4)
+    local more = UI.Label(page, "")
+    more:SetPoint("TOPRIGHT", list, "BOTTOMRIGHT", -4, 0)
+    more:SetTextColor(0.5, 0.5, 0.5)
+
     local none = UI.Label(page, "No modules installed. Put module folders (e.g. MMT_ItemCompare) next to the MMT folder in Interface/AddOns.")
-    none:SetPoint("TOPLEFT", rows[1], "TOPLEFT", 8, -8)
+    none:SetPoint("TOPLEFT", list, "TOPLEFT", 8, -8)
     none:SetWidth(PAGE_W - 16)
     none:SetJustifyH("LEFT")
     none:SetTextColor(0.5, 0.5, 0.5)
 
-    col:Space(6)
-    local reload = UI.Button(page, 160, "Reload UI", function() ReloadUI() end)
-    col:Add(reload, UI.ROW + 6)
     status = StatusLine(page)
     status:SetWidth(PAGE_W)
     col:Add(status, UI.ROW)
 
+    -- reload notice at the bottom, only while a reload is needed
+    local notice = CreateFrame("Frame", nil, page)
+    notice:SetPoint("BOTTOMLEFT", 0, 0)
+    notice:SetSize(PAGE_W, 34)
+    UI.Fill(notice, 1, 0.85, 0.2, 0.08)
+    UI.Border(notice, 1, 0.85, 0.2, 0.35)
+    local reload = UI.Button(notice, 120, "Reload UI", function() ReloadUI() end)
+    reload:SetPoint("RIGHT", -7, 0)
+    reload.label:SetTextColor(1, 0.85, 0.2)
+    notice.text = UI.Label(notice, "")
+    notice.text:SetPoint("LEFT", 10, 0)
+    notice.text:SetPoint("RIGHT", reload, "LEFT", -10, 0)
+    notice.text:SetJustifyH("LEFT")
+    notice.text:SetTextColor(1, 0.85, 0.2)
+    notice:Hide()
+
     page.OnRefresh = function()
-        local list = ns.InstalledModules()
-        for i, row in ipairs(rows) do
-            local e = list[i]
-            row.entry = e
-            if e then
-                local active = e.module and e.module.enabled
-                row.on = active or (not e.loaded and e.enabled)
-                row.title:SetText(e.title)
-                row.notes:SetText(e.notes)
-                if active then
-                    row.state:SetText("on"); row.state:SetTextColor(0.4, 1, 0.4)
-                elseif e.loaded then
-                    row.state:SetText("off"); row.state:SetTextColor(0.6, 0.6, 0.6)
-                elseif e.enabled then
-                    row.state:SetText("loads after reload"); row.state:SetTextColor(1, 0.85, 0.2)
-                else
-                    row.state:SetText("off (not loaded)"); row.state:SetTextColor(0.6, 0.6, 0.6)
-                end
-                row.check.Refresh()
-                row:Show()
-            else
-                row:Hide()
-            end
+        local v, author, repo = ns.AddOnInfo("MMT")
+        core.text:SetText(("Core: MMT %s%s"):format(v or ns.version, author and ("  by " .. author) or ""))
+        core.link:Set(repo, "MMT repository")
+
+        local entries = ns.InstalledModules()
+        list:Render(entries)
+        more:SetText(#entries > ROWS and ("%d modules, scroll for more"):format(#entries) or "")
+        none:SetShown(#entries == 0)
+
+        local pending = ns.PendingReload()
+        if #pending > 0 then
+            notice.text:SetText("Reload needed: " .. table.concat(pending, ", ") .. (#pending == 1 and " loads" or " load")
+                .. " after a UI reload.")
+            notice:Show()
+        elseif ns.reloadNeeded then
+            notice.text:SetText("Reload the UI to finish the module changes.")
+            notice:Show()
+        else
+            notice:Hide()
         end
-        none:SetShown(#list == 0)
-        reload:SetShown(ns.reloadNeeded == true)
     end
 end)
