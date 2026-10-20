@@ -50,6 +50,17 @@ local function RowTooltip(row)
     tip:AddDoubleLine("Layer", s.layer and ("#" .. s.layer) or "unknown", 1, 1, 1, 0.7, 0.7, 0.7)
     local phase = ns.PhaseOf(key)
     if phase then tip:AddDoubleLine("Phasing", phase, 1, 1, 1, 1, 0.25, 0.25) end
+    if ns.db.xp.followCheck then
+        local fi = ns.FollowInfo(key)
+        if fi and fi.broken then
+            tip:AddDoubleLine("Follow", "stopped following " .. ns.Ago(time() - math.floor(GetTime() - (fi.since or GetTime()))), 1, 1, 1, 1, 0.3, 0.3)
+        elseif fi and fi.combatBreak then
+            tip:AddDoubleLine("Follow", "broke in combat", 1, 1, 1, 1, 0.85, 0.2)
+        elseif fi and fi.following then
+            local t = fi.targetKey and ns.FullDisplay(fi.targetKey) or fi.target
+            tip:AddDoubleLine("Follow", t and ("following " .. t) or "following", 1, 1, 1, 0.4, 1, 0.4)
+        end
+    end
     if not ns.db.xp.locked then tip:AddLine("Drag to move, right-click for settings.", 0.5, 0.5, 0.5) end
     tip:Show()
 end
@@ -66,6 +77,15 @@ local function Row(i)
     row.rest = row:CreateTexture(nil, "BORDER")
     row.rest:SetPoint("TOPLEFT", row.fill, "TOPRIGHT"); row.rest:SetPoint("BOTTOMLEFT", row.fill, "BOTTOMRIGHT")
     row.rest:SetColorTexture(0.65, 0.45, 1.0, 0.30)
+    -- red, pulsing mark: this member stopped following
+    row.alert = row:CreateTexture(nil, "ARTWORK")
+    row.alert:SetAllPoints()
+    row.alert:SetColorTexture(1, 0.1, 0.1, 0.35)
+    row.alert.pulse = row.alert:CreateAnimationGroup()
+    row.alert.pulse:SetLooping("BOUNCE")
+    local afade = row.alert.pulse:CreateAnimation("Alpha")
+    afade:SetFromAlpha(1); afade:SetToAlpha(0.3); afade:SetDuration(0.8)
+    row.alert:Hide()
     row.value = row:CreateFontString(nil, "OVERLAY")
     row.value:SetPoint("RIGHT", -4, 0)
     row.value:SetJustifyH("RIGHT")
@@ -211,6 +231,13 @@ local function Update()
         row:ClearAllPoints()
         row:SetPoint("TOPLEFT", PAD, -(PAD + (i - 1) * (h + GAP)))
         row:SetSize(x.width, h)
+        local broken = x.followCheck and ns.FollowBroken and ns.FollowBroken(key)
+        row.alert:SetShown(broken and true or false)
+        if broken then
+            if not row.alert.pulse:IsPlaying() then row.alert.pulse:Play() end
+        else
+            row.alert.pulse:Stop()
+        end
 
         local cr, cg, cb = ClassColor(s.class)
         local useClass = x.classColors and cr

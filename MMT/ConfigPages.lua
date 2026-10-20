@@ -472,6 +472,19 @@ ns.RegisterPage("xp", "XP Window", function(page)
     R:Slider("Background opacity", 0, 1, 0.05, gb, sb, "%.2f")
     R:Button("Reset window position", function() ns.ResetXPPosition() end)
 
+    R:Header("Follow")
+    local gfc, sfc = Opt("xp", "followCheck")
+    R:Check("Check /follow of team", gfc, sfc,
+        "Every client reports when its character starts or stops following. A member who stops gets a red, pulsing row here. Needs MMT on every client.")
+    local gfw, sfw = Opt("xp", "followWarn")
+    R:Check("Show warning when follow breaks", gfw, sfw,
+        "Raid warning \"<Name> stopped following\" on the client of the character that was followed (the one you play).")
+    local gfs, sfs = Opt("xp", "followSound")
+    R:Check("Play sound when follow breaks", gfs, sfs, "The raid warning sound, on the same client as the warning.")
+    local gfi, sfi = Opt("xp", "followIgnoreCombat")
+    R:Check("Ignore follow breaks during combat", gfi, sfi,
+        "Follow often breaks in a fight. A break in combat only counts if the character still isn't following 2 seconds after its combat ended.")
+
 end)
 
 ---------------------------------------------------------------------------

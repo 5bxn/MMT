@@ -130,13 +130,14 @@ function ns.SendToTeam(msg, onlyOnline)
     end
 end
 
--- XP2:level:cur:max:class:rested:isMax:layerKey:layer:moduleData:money:freeSlots:slots:durAvg:durMin
+-- XP2:level:cur:max:class:rested:isMax:layerKey:layer:moduleData:money:freeSlots:slots:durAvg:durMin:follow
 -- moduleData is "key=value,..." from modules (e.g. eq=<equipment hash>)
 function ns.BuildXPMessage()
     local s = ns.UpdateOwnStatus()
-    return ("XP2:%d:%d:%d:%s:%d:%d:%s:%s:%s:%d:%d:%d:%s:%s"):format(s.level, s.cur, s.max, s.class or "",
+    return ("XP2:%d:%d:%d:%s:%d:%d:%s:%s:%s:%d:%d:%d:%s:%s:%s"):format(s.level, s.cur, s.max, s.class or "",
         s.rested, s.isMax and 1 or 0, s.layerKey or "", s.layer or "", ns.HeartbeatExtra(),
-        s.money or 0, s.free or 0, s.slots or 0, s.durAvg or "", s.durMin or "")
+        s.money or 0, s.free or 0, s.slots or 0, s.durAvg or "", s.durMin or "",
+        ns.OwnFollowField and ns.OwnFollowField() or "")
 end
 
 function ns.BroadcastXP(onlyOnline)
@@ -202,6 +203,7 @@ local function ParseXP(text)
         ext = ns.ParseHeartbeatExtra(f[10]),
         money = tonumber(f[11]), free = tonumber(f[12]), slots = tonumber(f[13]),
         durAvg = tonumber(f[14]), durMin = tonumber(f[15]),
+        follow = f[16],   -- "1" following, "0" not (missing from MMT before 0.8)
     }
 end
 
