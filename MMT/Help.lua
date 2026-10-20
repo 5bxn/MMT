@@ -98,7 +98,7 @@ end
 -- MMT.UI (widgets), MMT.Listen("PROFILE_CHANGED", fn)
 ]]
 
-local COMM_TEXT = "Every client runs its own MMT. Everything is sent through one queue in the core, which keeps to the game's limits (about 10 messages per prefix, then 1 per second, on group and guild channels) and sends throttled messages again. Give important messages priority \"ALERT\", large ones \"BULK\" (default \"NORMAL\"). Long texts: MMT.SendLong splits them and the other side gets the whole text. Only messages from characters in this client's team are passed on. Keep single messages under 250 bytes and start them with your own tag. Taken: XP, XP2, BYE, PING, PONG, SYNC, SYNCHI, SYNCACK, EQREQ, EQD, EQS, QNQ, QNA, LH, LHGO, LHC, QTREQ, QTS, QTD, QTAB, FOL, MPT."
+local COMM_TEXT = "Every client runs its own MMT. Everything is sent through one queue in the core, which keeps to the game's limits (about 10 messages per prefix, then 1 per second, on group and guild channels) and sends throttled messages again. Give important messages priority \"ALERT\", large ones \"BULK\" (default \"NORMAL\"). Long texts: MMT.SendLong splits them and the other side gets the whole text. Only messages from characters in this client's team are passed on. Keep single messages under 250 bytes and start them with your own tag. Taken: XP, XP2, BYE, PING, PONG, SYNC, SYNCHI, SYNCACK, EQREQ, EQD, EQS, QNQ, QNA, LH, LHGO, LHC, QTREQ, QTS, QTD, QTAB, FOL, MPT, FTL."
 
 local COMM_CODE = [[
 -- send to the whole team (true = only members that are online);

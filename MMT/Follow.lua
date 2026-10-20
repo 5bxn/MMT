@@ -99,6 +99,8 @@ end
 ---------------------------------------------------------------------------
 local own = { following = false, target = nil, combatBreak = false }
 
+function ns.IsFollowing() return own.following end
+
 function ns.OwnFollowField()
     return own.following and "1" or "0"
 end

@@ -435,6 +435,7 @@ local function HandleXP(key, sender, s)
     if not wasOnline then
         -- they just came online: answer so they see us right away
         Send(ns.BuildXPMessage(), "WHISPER", sender, "NORMAL")
+        ns.Fire("MEMBER_ONLINE", key, sender)
     end
     ns.Fire("STATUS_CHANGED")
 end

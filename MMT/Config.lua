@@ -357,6 +357,14 @@ SlashCmdList.MMT = function(msg)
         ns.ToggleConfig("modules")
     elseif cmd == "help" then
         ns.ToggleConfig("help")
+    elseif cmd == "leader" or cmd == "ftl" then
+        if not ns.db.ftl.enabled then ns.Print("FTL is switched off (/mmt > FTL).") return end
+        if arg == "" then
+            ns.ClaimFTLLeader()
+        else
+            local key = ns.IsSelf(arg) and ns.PlayerFull() or ns.Resolve(arg) or ns.Resolve((arg:gsub("%s+", "-")))
+            if key then ns.SetFTLLeader(key) else ns.Print("%s is not in your team.", arg) end
+        end
     elseif cmd == "scale" then
         local pct = tonumber((arg or ""):match("^(%d+)"))
         if pct then
@@ -383,6 +391,7 @@ SlashCmdList.MMT = function(msg)
         ns.Print("/mmt modules - show installed modules")
         ns.Print("/mmt help - debug tools and guides for writing modules")
         ns.Print("/mmt debug - debug tools (on, off, dump, log, clear, chat, name <text>)")
+        ns.Print("/mmt leader [name] - make this character (or <name>) the FTL leader")
         ns.Print("/mmt scale <percent> - size of the settings window (e.g. 130)")
         ns.Print("/mmt reset - reset the active profile")
     end

@@ -38,8 +38,9 @@ end)
 
 ---------------------------------------------------------------------------
 -- Row actions
---   click: invite   right-click: inspect   Ctrl-click: talents
---   Ctrl-right-click: remove from the group   Shift-right-click: settings
+--   click: FTL leader   right-click: invite   middle-click: invite the team
+--   Ctrl-click: inspect   Ctrl-right-click: talents
+--   Shift + drag: move   Shift-right-click: settings
 ---------------------------------------------------------------------------
 local function GroupUnit(key)
     if ns.IsSelf(key) then return "player" end
@@ -60,21 +61,22 @@ local function Invite(key)
     if ok then ns.Print("Invited %s.", ns.FullDisplay(key)) end
 end
 
-local function Remove(key)
-    if ns.IsSelf(key) then
-        if not IsInGroup() then return end
-        local leave = (C_PartyInfo and C_PartyInfo.LeaveParty) or LeaveParty
-        pcall(leave)
-        ns.Print("You left the group.")
-        return
+-- middle-click: invite every team member who isn't in the group yet
+local function InviteTeam()
+    if not CanLead() then ns.Print("Only the group leader can invite.") return end
+    local n = 0
+    for _, key in ipairs(ns.SortedMembers()) do
+        if not ns.IsSelf(key) and not ns.UnitForMember(key) then
+            local invite = (C_PartyInfo and C_PartyInfo.InviteUnit) or InviteUnit
+            if pcall(invite, ns.WhisperTarget(key)) then n = n + 1 end
+        end
     end
-    local unit = ns.UnitForMember(key)
-    if not unit then ns.Print("%s is not in your group.", ns.FullDisplay(key)) return end
-    if not UnitIsGroupLeader("player") then ns.Print("Only the group leader can remove members.") return end
-    local uninvite = (C_PartyInfo and C_PartyInfo.UninviteUnit) or UninviteUnit
-    local ok, err = pcall(uninvite, GetUnitName(unit, true))
-    ns.Debug("XP window uninvite %s -> %s %s", tostring(unit), tostring(ok), tostring(err or ""))
-    if ok then ns.Print("Removed %s from the group.", ns.FullDisplay(key)) end
+    if n > 0 then ns.Print("Invited %d team member(s).", n) else ns.Print("The whole team is in your group already.") end
+end
+
+local function MakeLeader(key)
+    if not ns.db.ftl.enabled then ns.Print("FTL is switched off (/mmt > FTL).") return end
+    ns.SetFTLLeader(key)
 end
 
 -- Blizzard windows are only opened outside combat (opening them from addon
@@ -183,12 +185,13 @@ local function RowClick(row, button)
     local key = row.key
     if not key or dragging or GetTime() - dragEnd < 0.2 then return end
     local shift, ctrl = IsShiftKeyDown(), IsControlKeyDown()
+    if button == "MiddleButton" then InviteTeam() return end
     if button == "RightButton" and shift then ns.ToggleConfig("xp") return end
     if shift then return end                      -- Shift + drag moves the window
     if button == "LeftButton" then
-        if ctrl then Inspect(key, true) else Invite(key) end
+        if ctrl then Inspect(key, false) else MakeLeader(key) end
     elseif button == "RightButton" then
-        if ctrl then Remove(key) else Inspect(key, false) end
+        if ctrl then Inspect(key, true) else Invite(key) end
     end
 end
 
@@ -231,13 +234,12 @@ local function RowTooltip(row)
             tip:AddDoubleLine("Follow", t and ("following " .. t) or "following", 1, 1, 1, 0.4, 1, 0.4)
         end
     end
+    if ns.IsFTLLeader(key) then tip:AddLine("FTL leader: {FTL} macros point to this character.", 1, 0.82, 0) end
     tip:AddLine(" ")
-    if not ns.IsSelf(key) then
-        tip:AddLine("Click: invite   Right-click: inspect", 0.5, 0.5, 0.5)
-        tip:AddLine("Ctrl-click: talents   Ctrl-right-click: remove from group", 0.5, 0.5, 0.5)
-    else
-        tip:AddLine("Right-click: character   Ctrl-click: talents   Ctrl-right-click: leave group", 0.5, 0.5, 0.5)
-    end
+    tip:AddLine("Click: make FTL leader   Right-click: invite", 0.5, 0.5, 0.5)
+    tip:AddLine(ns.IsSelf(key) and "Ctrl-click: character   Ctrl-right-click: talents"
+        or "Ctrl-click: inspect   Ctrl-right-click: talents", 0.5, 0.5, 0.5)
+    tip:AddLine("Middle-click: invite the whole team", 0.5, 0.5, 0.5)
     tip:AddLine((ns.db.xp.locked and "" or "Shift-drag: move   ") .. "Shift-right-click: settings", 0.5, 0.5, 0.5)
     tip:Show()
 end
@@ -495,6 +497,9 @@ local function Update()
         row.track:SetShown(x.showBars)
 
         local name = ns.Display(key)
+        if ns.db.ftl.enabled and ns.db.ftl.crown and ns.IsFTLLeader(key) then
+            name = "|TInterface\\GroupFrame\\UI-Group-LeaderIcon:0:0:0:-1|t" .. name
+        end
         local values = rep and RepValueText(s) or ValueText(key, s)
 
         -- Layer Hop tag

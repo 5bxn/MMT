@@ -51,6 +51,20 @@ ns.defaults = {
         point       = { "TOPLEFT", "TOPLEFT", 30, -250 },
     },
 
+    -- FTL: macros with {FTL} = the character you are playing (FTL.lua)
+    ftl = {
+        enabled    = true,
+        detect     = "MOVE",    -- MOVE: moving a character that isn't following makes it the leader | MANUAL
+        nameFormat = "FULL",    -- FULL "First Last" | FIRST "First" | UNIT party/raid unit ("party2")
+        skipSelf   = true,      -- leave {FTL} lines out on the leader's own client
+        crown      = true,      -- crown in front of the leader in the XP window
+        announce   = true,      -- chat line when the leader changes
+        macros = {
+            { name = "FTL Follow", body = "/follow {FTL}" },
+            { name = "FTL Assist", body = "/assist {FTL}" },
+        },
+    },
+
     -- team communication
     comm = {
         guild = false,   -- send team messages on the guild channel (all characters in one guild)

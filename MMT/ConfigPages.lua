@@ -527,6 +527,146 @@ ns.RegisterPage("xp", "XP Window", function(page)
 end)
 
 ---------------------------------------------------------------------------
+-- FTL
+---------------------------------------------------------------------------
+ns.RegisterPage("ftl", "FTL", function(page)
+    local L = UI.Column(page, 0, 0, COL_W)
+    L:Header("FTL")
+    L:Note("FTL is short for Focusless, Targetless, Leaderless. It allows you to create macros that will always target the character you are controlling right now; like for follow or assist.")
+    local warn = L:Note("Important: this feature originates from the software ISBoxer, but is inferior to it. The FTL target in MMT CANNOT be changed during combat.")
+    warn:SetTextColor(1, 0.45, 0.4)
+
+    L:Header("Settings")
+    L:Check("Use FTL macros", Opt("ftl", "enabled"))
+    local gd, sd = Opt("ftl", "detect")
+    L:Cycle("Leader", {
+        { value = "MOVE", text = "Automatic, when you move" },
+        { value = "MANUAL", text = "Only by click, key, command" },
+    }, gd, sd)
+    local gn, sn = Opt("ftl", "nameFormat")
+    L:Cycle("{FTL} becomes", {
+        { value = "FULL", text = "First Last" },
+        { value = "FIRST", text = "First name" },
+        { value = "UNIT", text = "Group unit (party2)" },
+    }, gn, sn)
+    local gs, ss = Opt("ftl", "skipSelf")
+    L:Check("Leave {FTL} lines out on the leader", gs, ss,
+        "On the leader's own client, macro lines with {FTL} are left out (the leader can't follow or assist itself).")
+    local gc, sc = Opt("ftl", "crown")
+    L:Check("Crown on the leader in the XP window", gc, sc)
+    local ga, sa = Opt("ftl", "announce")
+    L:Check("Chat line when the leader changes", ga, sa)
+
+    L:Header("Changing the leader")
+    L:Note("- Click the character in the XP window\n- Key binding \"Make this character the leader\" (Esc > Options > Keybindings > AddOns > MMT)\n- /mmt leader (this character) or /mmt leader <name>\n- Automatically when you move a character that isn't following (setting above). Not with movement keys broadcast to every window.")
+    local current = L:Note("")
+
+    -- right: the macros ---------------------------------------------------
+    local R = UI.Column(page, COL2_X, 0, COL_W)
+    R:Header("Macros")
+    local selected = 1
+    local status
+    local nameBox, bodyBox, preview
+    local function Macros() return ns.db.ftl.macros end
+
+    local list = List(page, COL_W, 5, 22, function(parent, i)
+        local row = CreateFrame("Button", nil, parent)
+        RowBackground(row, i)
+        row.text = UI.Label(row, "")
+        row.text:SetPoint("LEFT", 8, 0)
+        row.text:SetPoint("RIGHT", -8, 0)
+        row.text:SetJustifyH("LEFT")
+        row.text:SetWordWrap(false)
+        row.sel = UI.Fill(row, A[1], A[2], A[3], 0.15, "BORDER")
+        local hl = row:CreateTexture(nil, "HIGHLIGHT")
+        hl:SetAllPoints(); hl:SetColorTexture(1, 1, 1, 0.05)
+        row:SetScript("OnClick", function()
+            selected = row.index
+            nameBox:ClearFocus(); bodyBox.edit:ClearFocus()
+            page.OnRefresh()
+        end)
+        return row
+    end, function(row, m, index)
+        row.index = index
+        row.text:SetText(m.name ~= "" and m.name or "(no name)")
+        row.sel:SetShown(index == selected)
+    end)
+    R:Add(list, 5 * 22 + 6)
+
+    nameBox = UI.EditBox(page, COL_W, "Macro name (max. 16 characters)")
+    nameBox:SetMaxLetters(16)
+    R:Add(nameBox, UI.ROW + 4)
+    bodyBox = UI.TextArea(page, COL_W, 92)
+    bodyBox.edit:SetMaxLetters(255)
+    R:Add(bodyBox, 98)
+    bodyBox.edit:HookScript("OnTextChanged", function(self)
+        local text, cut = ns.FTLResolve(self:GetText())
+        preview:SetText("Here: " .. (text ~= "" and text:gsub("\n", " | ") or "(nothing: every line has {FTL})") .. (cut and "  |cffff6666(too long)|r" or ""))
+    end)
+    preview = R:Note("")
+
+    local function Save()
+        local name = ns.Trim(nameBox:GetText())
+        local body = bodyBox.edit:GetText()
+        if name == "" then status.Show_("Give the macro a name.", true) return end
+        for i, m in ipairs(Macros()) do
+            if i ~= selected and m.name == name then status.Show_("There is already a macro called " .. name .. ".", true) return end
+        end
+        local m = Macros()[selected]
+        if not m then m = {}; table.insert(Macros(), m); selected = #Macros() end
+        m.name, m.body = name, body
+        local r = ns.FTLUpdateMacros("edit")
+        status.Show_(r == "combat" and "Saved. The WoW macro is written after combat." or ("Saved: " .. name .. "."))
+        page.OnRefresh()
+    end
+
+    local save = UI.Button(page, 120, "Save", Save)
+    R:Add(save, 0)
+    local new = UI.Button(page, 120, "New", function()
+        table.insert(Macros(), { name = "FTL " .. (#Macros() + 1), body = "/follow {FTL}" })
+        selected = #Macros()
+        page.OnRefresh()
+        nameBox:SetFocus(); nameBox:HighlightText()
+        status.Show_("New macro: change name and text, then Save.")
+    end)
+    new:SetPoint("LEFT", save, "RIGHT", 8, 0)
+    R:Space(UI.ROW + 4)
+    local delete = ConfirmButton(page, 120, "Delete", function()
+        local m = Macros()[selected]
+        if not m then return end
+        table.remove(Macros(), selected)
+        selected = math.max(1, selected - 1)
+        ns.FTLUpdateMacros("delete")
+        status.Show_("Deleted " .. m.name .. " (and its WoW macro).")
+        page.OnRefresh()
+    end)
+    R:Add(delete, 0)
+    local pickup = UI.Button(page, 120, "Drag to bar", function()
+        local m = Macros()[selected]
+        if m then ns.FTLPickup(m.name) end
+    end)
+    UI.Tooltip(pickup, "Drag to bar", "Puts the macro on your cursor: click an action bar slot to place it. The macro is also in the game's macro window (account macros).")
+    pickup:SetPoint("LEFT", delete, "RIGHT", 8, 0)
+    R:Space(UI.ROW + 4)
+    status = StatusLine(page)
+    status:SetWidth(COL_W)
+    R:Add(status, UI.ROW)
+    R:Note("Write {FTL} where the leader's name goes. Every client keeps these macros up to date; /mmt sync shares them with the team.")
+
+    page.OnRefresh = function()
+        local macros = Macros()
+        if selected > #macros then selected = math.max(1, #macros) end
+        list:Render(macros)
+        local m = macros[selected]
+        if not nameBox:HasFocus() then nameBox:SetText(m and m.name or "") nameBox:UpdatePlaceholder() end
+        if not bodyBox.edit:HasFocus() then bodyBox.edit:SetText(m and m.body or "") end
+        local leader = ns.FTLLeader()
+        current:SetText("Leader now: " .. (leader and (ns.FullDisplay(leader) .. (ns.IsSelf(leader) and " (this character)" or "")) or "nobody yet"))
+    end
+    ns.Listen("FTL_LEADER", function() if page:IsVisible() then page.OnRefresh() end end)
+end)
+
+---------------------------------------------------------------------------
 -- Automations (formerly OMT)
 ---------------------------------------------------------------------------
 ns.RegisterPage("automations", "Automations", function(page)
