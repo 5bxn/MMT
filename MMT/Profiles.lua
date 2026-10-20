@@ -41,14 +41,14 @@ ns.defaults = {
         size        = 12,
         outline     = "OUTLINE",
         align       = "SPLIT",   -- SPLIT (name left, values right) | LEFT | CENTER | RIGHT
-        width       = 250,
+        width       = 325,
         barMode     = "XP",      -- XP | REP: what the bar (and its % value) shows
         barHeight   = 18,
         rowGap      = 3,         -- pixels between the rows
         bgAlpha     = 0.35,
         alpha       = 1,
         scale       = 1,
-        point       = { "TOPLEFT", "TOPLEFT", 30, -250 },
+        point       = { "LEFT", "LEFT", 300, 0 },   -- vertically centred, 300 from the left edge (grows up and down)
     },
 
     -- FTL: macros with {FTL} = the character you are playing (FTL.lua)
