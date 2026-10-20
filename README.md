@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.1: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.2: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -155,6 +155,9 @@ Saved data from MMT 0.1.x is converted automatically.
   transfer starts and when it is complete, then a dialog to accept it.
 - **Help**: debug tools with a how-to, and guides for writing modules and using the
   team communication (with copyable example code).
+
+The page list on the left shows up to 16 pages; scroll it with the mouse wheel. Click
+CORE or MODULES to collapse or expand that section (remembered per account).
 
 The settings window has its own scale (- / + at the bottom left, right-click resets,
 or `/mmt scale 130`), kept per account. The XP window's scale is under XP Window > Look.
