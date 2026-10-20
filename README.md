@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.8.11: core addon (MMT) plus optional modules (MMT_*).
+Version 0.8.12: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -177,7 +177,7 @@ Team abandon is QTAB:<questID>.
 ## Commands
 - `/mmt` settings, `/mmt xp` toggle XP window, `/mmt trade` refill open trade,
   `/mmt sync` send the core settings to the team, `/mmt sync <module>` only that module's settings, `/mmt modules` installed
-  modules, `/mmt scale <percent>` settings window size, `/mmt leader [name]` FTL leader (this character or the named one), `/mmt help` help page, `/mmt reset` reset profile.
+  modules, `/mmt scale <percent>` settings window size, `/mmt leader [name]` FTL leader (this character or the named one), `/jamba-team iammaster all` same as `/mmt leader` (only when Jamba isn't loaded, for old Jamba macros), `/mmt help` help page, `/mmt reset` reset profile.
 
 ## Team communication
 - All messages go through one send queue in the core with three priorities (alerts such

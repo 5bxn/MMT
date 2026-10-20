@@ -392,7 +392,42 @@ SlashCmdList.MMT = function(msg)
         ns.Print("/mmt help - debug tools and guides for writing modules")
         ns.Print("/mmt debug - debug tools (on, off, dump, log, clear, chat, name <text>)")
         ns.Print("/mmt leader [name] - make this character (or <name>) the FTL leader")
+        if ns.jambaCommand then ns.Print("/jamba-team iammaster all - same as /mmt leader (Jamba isn't loaded)") end
         ns.Print("/mmt scale <percent> - size of the settings window (e.g. 130)")
         ns.Print("/mmt reset - reset the active profile")
     end
 end
+
+---------------------------------------------------------------------------
+-- Jamba compatibility: without Jamba, "/jamba-team iammaster all" (from old
+-- Jamba macros and key setups) does the same as /mmt leader.
+---------------------------------------------------------------------------
+local function JambaLoaded()
+    local A = C_AddOns or {}
+    local num = A.GetNumAddOns or GetNumAddOns
+    local info = A.GetAddOnInfo or GetAddOnInfo
+    local loaded = A.IsAddOnLoaded or IsAddOnLoaded
+    if not (num and info and loaded) then return false end
+    for i = 1, num() do
+        local name = info(i)
+        if type(name) == "string" and name:lower():find("^jamba") and loaded(name) then return true end
+    end
+    return false
+end
+
+ns.OnLogin(function()
+    if JambaLoaded() then
+        ns.Debug("Jamba is loaded: /jamba-team stays Jamba's")
+        return
+    end
+    ns.jambaCommand = true
+    SLASH_MMTJAMBATEAM1 = "/jamba-team"
+    SlashCmdList.MMTJAMBATEAM = function(msg)
+        local cmd = (ns.Trim(msg or ""):match("^(%S*)") or ""):lower()
+        if cmd == "iammaster" then
+            SlashCmdList.MMT("leader")
+        else
+            ns.Print("Of /jamba-team, MMT only knows \"iammaster all\": it makes this character the FTL leader (/mmt leader).")
+        end
+    end
+end)
