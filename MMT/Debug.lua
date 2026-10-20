@@ -14,7 +14,9 @@ function ns.ShowText(title, text)
         local f = CreateFrame("Frame", "MMTTextFrame", UIParent)
         f:SetSize(620, 440)
         f:SetPoint("CENTER")
-        f:SetFrameStrata("DIALOG")
+        -- above the settings window (DIALOG, or FULLSCREEN_DIALOG when opened from the game options)
+        f:SetFrameStrata("FULLSCREEN_DIALOG")
+        f:SetToplevel(true)
         f:SetMovable(true)
         f:EnableMouse(true)
         f:SetClampedToScreen(true)
@@ -46,7 +48,13 @@ function ns.ShowText(title, text)
     end
     textFrame.title:SetText(title)
     textFrame.area.edit:SetText(text)
+    -- same strata as the settings window: put it well above that window and its widgets
+    local config = _G.MMTConfigFrame
+    if config and config:IsShown() and config:GetFrameStrata() == textFrame:GetFrameStrata() then
+        textFrame:SetFrameLevel(math.min(9000, config:GetFrameLevel() + 100))
+    end
     textFrame:Show()
+    textFrame:Raise()
 end
 
 ---------------------------------------------------------------------------
