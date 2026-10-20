@@ -212,7 +212,7 @@ ns.RegisterPage("team", "Team", function(page)
         "Off: names in the debug log and report are replaced by the names shown above (\"Slot 1\" when that is the full name). For reports you post somewhere.")
     local gh, sh = Opt("privacy", "hideOutside")
     local hideCheck = P:Check("Hide names outside MMT too", gh, function(v) sh(v) if ns.PrivacyChanged then ns.PrivacyChanged() end end,
-        "Replaces your team's names in chat, unit frames (player, target, focus, party, raid), nameplates and unit tooltips with the names shown above, where the game allows it. Other addons' windows only where they print to chat. Not with \"Full name\".")
+        "Replaces your team's names in chat, unit frames (player, target, focus, party, raid), nameplates, unit tooltips and the frames of other addons (e.g. their raid frames) with the names shown above, where the game allows it. Not with \"Full name\".")
     P:Note("Everything in MMT uses this. Macros, invites and whispers keep the real names.")
 
     page.OnRefresh = function()

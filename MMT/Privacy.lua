@@ -4,10 +4,10 @@
 --   * ns.ReplaceNames(text, forDebug): used for debug logs and reports when
 --     "Keep full names in debug logs" is off.
 --   * "Hide names outside MMT too": chat (every chat window), unit frames
---     (player, target, focus, target of target, party, raid), nameplates and
---     unit tooltips, as far as the game allows: values the game hands out as
---     secrets can't be read and stay as they are. Other addons' windows are
---     only covered where they print to chat.
+--     (player, target, focus, target of target, party, raid), nameplates,
+--     unit tooltips and any text other addons show in their own frames (raid
+--     frames of other addons), as far as the game allows: values the game
+--     hands out as secrets can't be read and stay as they are.
 --
 -- Only what is shown changes: player links in chat keep the real name, so
 -- clicking a name still whispers the right character. Addon messages,
@@ -66,7 +66,17 @@ end
 local cache = {}
 local function CachedRules(forDebug)
     local k = forDebug and "debug" or "show"
-    if not cache[k] then cache[k] = Rules(forDebug) end
+    if not cache[k] then
+        local rules = Rules(forDebug)
+        -- quick test: the names that must appear for any rule to match
+        local needles, seen = {}, {}
+        for _, r in ipairs(rules) do
+            local word = r.text:match("^[^%s%-<]+") or r.text
+            if not seen[word] then seen[word] = true; needles[#needles + 1] = word end
+        end
+        rules.needles = needles
+        cache[k] = rules
+    end
     return cache[k]
 end
 function ns.PrivacyChanged()
@@ -78,23 +88,41 @@ ns.Listen("PROFILE_CHANGED", function() cache = {} end)
 ns.Listen("XP_RECEIVED", function() cache = {} end)   -- a class learned later changes "Druid 1" names
 
 local function ReplacePlain(text, rules)
+    if text == "" then return text end
     for _, r in ipairs(rules) do text = text:gsub(r.pattern, r.repl) end
     return text
 end
 
--- replaces the names in shown text; link data (|H...|h) and textures stay as they are
+-- escape sequences that are not shown text: links (data part), textures,
+-- atlases, Battle.net names, colour codes, "|r", "||", "|n". They separate
+-- words, so "|cffaad372Gunter McQuiding|r" is found as a whole name.
+local ESCAPES = { "^|H.-|h", "^|T.-|t", "^|A.-|a", "^|K.-|k", "^|c%x%x%x%x%x%x%x%x", "^|cn[^:]*:", "^|r", "^||", "^|n" }
+
+local function Contains(text, needles)
+    for _, n in ipairs(needles) do
+        if text:find(n, 1, true) then return true end
+    end
+    return false
+end
+
+-- replaces the names in shown text; escape sequences stay as they are
 function ns.ReplaceNames(text, forDebug)
     if type(text) ~= "string" or ns.IsSecret(text) or text == "" then return text end
     local rules = CachedRules(forDebug)
-    if #rules == 0 then return text end
-    if forDebug then return ReplacePlain(text, rules) end
-    local out, pos = {}, 1
-    while true do
-        local a, b = text:find("|[HT].-|[ht]", pos)
-        if not a then break end
-        out[#out + 1] = ReplacePlain(text:sub(pos, a - 1), rules)
-        out[#out + 1] = text:sub(a, b)   -- link data or texture: unchanged
-        pos = b + 1
+    if #rules == 0 or not Contains(text, rules.needles) then return text end
+    local out, pos, len = {}, 1, #text
+    while pos <= len do
+        local bar = text:find("|", pos, true)
+        if not bar then break end
+        out[#out + 1] = ReplacePlain(text:sub(pos, bar - 1), rules)
+        local stop
+        for _, pattern in ipairs(ESCAPES) do
+            local _, e = text:find(pattern, bar)
+            if e then stop = e break end
+        end
+        stop = stop or bar
+        out[#out + 1] = text:sub(bar, stop)
+        pos = stop + 1
     end
     out[#out + 1] = ReplacePlain(text:sub(pos), rules)
     return table.concat(out)
@@ -171,6 +199,34 @@ end
 for _, e in ipairs({ "PLAYER_TARGET_CHANGED", "PLAYER_FOCUS_CHANGED", "GROUP_ROSTER_UPDATE", "UNIT_NAME_UPDATE",
     "PLAYER_ENTERING_WORLD" }) do
     ns.On(e, RefreshSoon)
+end
+
+---------------------------------------------------------------------------
+-- Every other text in the interface (unit and raid frames of other addons,
+-- e.g. Ellesmere): after any FontString:SetText / SetFormattedText the text
+-- is checked. Cheap when no team name is in it (a few plain searches).
+---------------------------------------------------------------------------
+local busy = false
+local function AfterSetText(fs, text)
+    if busy or not Active() then return end
+    if text == nil then text = fs:GetText() end
+    if type(text) ~= "string" or ns.IsSecret(text) then return end
+    local new = ns.ReplaceNames(text)
+    if new ~= text then
+        busy = true
+        pcall(fs.SetText, fs, new)
+        busy = false
+    end
+end
+
+do
+    local probe = UIParent and UIParent.CreateFontString and UIParent:CreateFontString()
+    local meta = probe and getmetatable(probe)
+    local methods = meta and meta.__index
+    if hooksecurefunc and type(methods) == "table" then
+        if methods.SetText then hooksecurefunc(methods, "SetText", function(fs, text) AfterSetText(fs, text) end) end
+        if methods.SetFormattedText then hooksecurefunc(methods, "SetFormattedText", function(fs) AfterSetText(fs, nil) end) end
+    end
 end
 
 ---------------------------------------------------------------------------

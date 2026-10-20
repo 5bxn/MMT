@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.0: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.1: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -45,8 +45,8 @@ Saved data from MMT 0.1.x is converted automatically.
   "Keep full names in debug logs" (on by default): off replaces them in the debug log
   and report. "Hide names outside MMT too" (off by default, not with "Full name"):
   replaces your team's names in chat (all chat windows; clicking a name still whispers
-  the right character), unit frames, raid frames, nameplates and unit tooltips, where
-  the game allows it. Other addons' windows are only covered where they print to chat.
+  the right character), unit frames, raid frames, nameplates, unit tooltips and the
+  text of other addons' frames (e.g. their raid frames), where the game allows it.
 - **Roles**: create roles, tick their members, add items (drop one on the slot, or
   click the field and shift-click an item anywhere; IDs and exact names work too),
   rules (all grey, all Bind on Equip, by quality) and item groups (Cloth, Leather,
