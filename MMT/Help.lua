@@ -89,12 +89,15 @@ M.Report = function(self, add)
     add("Example: greeting=" .. tostring(M.db.greeting))
 end
 
--- Names: show characters with MMT.ShownName(key): it follows the privacy
--- setting (Team > Privacy: first, last or full name, "Druid 1", "Slot 2").
--- MMT.FirstName and MMT.FullDisplay do the same. Only for what needs the
--- real name (macros, invites, unit lookups): MMT.RealName(key),
--- MMT.RealFirst(key). Mouseover: MMT.HoverMember(frame, function()
--- return key end).
+-- Names: internally, characters are always addressed by their full name
+-- (team key "First-Last"; messages, whispers, invites, unit lookups), so
+-- features find the right character. Everything the player SEES uses the
+-- privacy setting (Team > Privacy: first name by default, last or full
+-- name, "Druid 1", "Slot 2"): MMT.ShownName(key) (MMT.FirstName and
+-- MMT.FullDisplay do the same) in frames, chat lines, tooltips, warnings.
+-- Real names only where the game needs them, e.g. macros:
+-- MMT.RealName(key), MMT.RealFirst(key), MMT.RealLast(key).
+-- Mouseover: MMT.HoverMember(frame, function() return key end).
 
 -- Useful core functions: MMT.Print, M:Debug, MMT.SortedMembers(),
 -- MMT.IsOnline(key), MMT.IsSelf(key), MMT.PlayerFull(),

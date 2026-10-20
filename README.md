@@ -218,6 +218,23 @@ Team abandon is QTAB:<questID>.
 - All clients need MMT 0.8.4 or later for large transfers (older versions don't listen
   on "MMTB").
 
+## Character names
+Characters on WoW: Forever have a first and a last name. MMT keeps two rules:
+- **Internally, always the full name.** Team keys ("First-Last"), messages between the
+  clients, whispers, invites and unit lookups use the real first and last name, so
+  every feature finds the right character.
+- **Everything you see follows Team > Privacy** (first name by default, or last name,
+  full name, "Druid 1", "Slot 1"): windows, settings pages, tooltips, MMT's chat lines
+  and raid warnings. With "Hide names outside MMT too" also chat, unit frames,
+  nameplates, tooltips and other addons' frames.
+- **Exception: macros.** `{FTL}` macros contain the real name, because the game needs it
+  to find the character.
+
+For modules: show names with `MMT.ShownName(key)` (`MMT.FirstName` and
+`MMT.FullDisplay` do the same); use `MMT.RealName(key)` / `MMT.RealFirst(key)` /
+`MMT.RealLast(key)` only where the game needs the real name. Never put a real name
+into text the player sees.
+
 ## Two accounts = two separate teams
 Every account keeps its own saved settings, so the team must exist on each client:
 group up and press *Add group* on every client, or add the team once and send it
