@@ -62,7 +62,11 @@ M.Page = function(_, page)
     masterOnly[#masterOnly + 1] = R:Cycle("No role wants it", {
         { value = "LEAVE", text = "Leave for manual" },
         { value = "SELF", text = "Give to master looter" },
+        { value = "RR", text = "Round robin to the team" },
     }, gu, su)
+    local grr, srr = Opt("rrNotice")
+    masterOnly[#masterOnly + 1] = R:Check("Say so in chat (round robin)", grr, srr,
+        "Prints \"[Item] is not part of any role or rule, so it was given round robin to <Name>.\" (only for you). Round robin keeps the free bag slots above; quest items are never part of it.")
     local grep, srep = Opt("report")
     masterOnly[#masterOnly + 1] = R:Check("Report in chat", grep, srep, "Prints each item given and the loot settings that were applied (only for you).")
     masterOnly[#masterOnly + 1] = R:Note("Bind on Pickup items are never given out or looted: they are posted in group chat, and the master looter assigns them by hand. Items without loaded item data are left alone, too.")
@@ -71,7 +75,7 @@ M.Page = function(_, page)
     R:Header("Quest items")
     local gq, sq = Opt("questRR")
     masterOnly[#masterOnly + 1] = R:Check("Auto-Round Robin quest items", gq, sq,
-        "As master looter, quest items go to the team members in turns, in team order. Only characters the game offers for the item (on the quest and able to receive it) get a turn. Turns are kept per item, so drops spread evenly.")
+        "As master looter, quest items go to the team members in turns, in team order. Only characters the game offers for the item (on the quest and able to receive it) get a turn. Turns are kept per item, so drops spread evenly. The free bag slots setting doesn't apply: quest items are given even into the last slot.")
 
     page.OnRefresh = function()
         local method, partyIndex = mod.GetMethod()
@@ -98,9 +102,9 @@ function M.Report(_, add)
     add(("-- Loot Distribution  current=%s partyML=%s raidML=%s threshold=%s isMaster=%s leader=%s"):format(
         tostring(method), tostring(partyIndex), tostring(raidIndex), tostring(mod.GetThreshold()),
         tostring(mod.IsMasterLooter()), tostring(IsInGroup() and UnitIsGroupLeader("player"))))
-    add(("settings: auto=%s method=%s threshold=%s looter=%s byRoles=%s reserve=%s unassigned=%s"):format(
+    add(("settings: auto=%s method=%s threshold=%s looter=%s byRoles=%s reserve=%s unassigned=%s rrNotice=%s"):format(
         tostring(M.db.autoMethod), tostring(M.db.method), tostring(M.db.threshold), tostring(M.db.looter),
-        tostring(M.db.byRoles), tostring(M.db.reserve), tostring(M.db.unassigned)))
+        tostring(M.db.byRoles), tostring(M.db.reserve), tostring(M.db.unassigned), tostring(M.db.rrNotice)))
     add("quest round robin=" .. tostring(M.db.questRR))
     for itemID, key in pairs(M.store.questRR or {}) do add(("  quest item %s: last given to %s"):format(tostring(itemID), MMT.Repr(key))) end
     for _, key in ipairs(MMT.SortedMembers()) do

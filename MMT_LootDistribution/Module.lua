@@ -12,6 +12,12 @@
 -- 3. Quest items (only the master looter can hand them out on Forever): given
 --    round robin across the team, to the next member in team order that the
 --    game offers as a candidate (= on the quest and able to receive it).
+--    The "keep free bag slots" reserve does NOT apply to quest items: one free
+--    slot is enough, and with full bags they are still tried (the item may go
+--    onto a stack the member already has).
+-- 4. Items no role or rule wants (not quest items): left for manual
+--    assignment, given to the master looter, or given round robin across the
+--    team (keeping the reserve), with an optional chat line saying so.
 
 local _, mod = ...
 local MMT = MMT
@@ -28,7 +34,8 @@ local M = MMT.NewModule({
         looter       = "LEADER",   -- master looter: "LEADER" or a team key
         byRoles      = true,
         reserve      = 2,          -- free bag slots every member keeps
-        unassigned   = "LEAVE",    -- items no role wants: LEAVE | SELF
+        unassigned   = "LEAVE",    -- items no role wants: LEAVE | SELF | RR (round robin)
+        rrNotice     = true,       -- chat line when an item without rule goes round robin
         questRR      = true,       -- quest items round robin across the team
         report       = true,
     },
@@ -36,6 +43,17 @@ local M = MMT.NewModule({
 mod.M = M
 
 local BOP = (Enum and Enum.ItemBind and Enum.ItemBind.OnAcquire) or 1
+local QUEST_CLASS = (Enum and Enum.ItemClass and Enum.ItemClass.Questitem) or 12
+
+-- quest item: the loot window says so, or the item's class is "Quest"
+-- (the loot window flag is missing for some quest items)
+local function IsQuestLoot(slot, link)
+    if select(7, GetLootSlotInfo(slot)) then return true end
+    local instant = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
+    if not (link and instant) then return false end
+    local ok, _, _, _, _, _, classID = pcall(instant, link)
+    return ok and classID == QUEST_CLASS
+end
 local ITEM_SLOT = (Enum and Enum.LootSlotType and Enum.LootSlotType.Item) or 1
 
 ---------------------------------------------------------------------------
@@ -222,23 +240,33 @@ end
 
 -- the plan for one item: returns key, candidateIndex, reason
 -- planned[key]: items already planned for that member in this loot window
-local function Choose(slot, link, planned)
+local NextRoundRobin
+local function Choose(slot, link, planned, isQuest)
     local cfg = M.db
+    -- quest items only need one free slot, whatever the reserve
+    local reserve = isQuest and 0 or cfg.reserve
     local keys, roles = MMT.MembersForItem(link)
+    -- "give by roles" off: items a role wants stay for manual assignment
+    if not cfg.byRoles and #keys > 0 then return nil, nil, "roles off" end
     for _, key in ipairs(keys) do
         local free = Free(key, planned)
         local index = CandidateIndex(slot, key)
-        if index and free and free > cfg.reserve then
+        if index and free and free > reserve then
             return key, index, roles[key]
         end
         M:Debug("skip %s for %s: candidate=%s free=%s reserve=%d", MMT.Repr(key), link,
-            tostring(index), tostring(free), cfg.reserve)
+            tostring(index), tostring(free), reserve)
     end
     if #keys == 0 and cfg.unassigned == "SELF" then
         local me = MMT.PlayerFull()
         local free = Free(me, planned)
         local index = CandidateIndex(slot, me)
-        if index and free and free > cfg.reserve then return me, index, nil end
+        if index and free and free > reserve then return me, index, nil end
+    end
+    if #keys == 0 and cfg.unassigned == "RR" and not isQuest then
+        local key, index = NextRoundRobin(slot, link, planned)
+        if key then return key, index, "round robin", true end
+        return nil, nil, "no rule, nobody with room"
     end
     return nil, nil, (#keys == 0) and "no role" or "no space"
 end
@@ -388,13 +416,18 @@ local function NextQuestReceiver(slot, link, planned, needOf)
     local start = 1
     local last = M.store.questRR[itemID]
     for i, key in ipairs(order) do if key == last then start = i + 1 end end
-    for _, wanted in ipairs({ "Y", "U" }) do
+    -- passes: needs it + has a free slot, no objective + free slot, then the
+    -- same with full bags (the item may still fit on a stack they carry).
+    -- The "keep free bag slots" reserve doesn't count for quest items.
+    for _, pass in ipairs({ { "Y", true }, { "U", true }, { "Y", false }, { "U", false } }) do
+        local wanted, needRoom = pass[1], pass[2]
         for n = 0, #order - 1 do
             local key = order[(start - 1 + n) % #order + 1]
             local need = needOf(key, name)
             local index = CandidateIndex(slot, key)
             local free = Free(key, planned)
-            if need == wanted and index and (free == nil or free > 0) and not IsBlocked(link, key) then
+            local room = free == nil or free > 0
+            if need == wanted and index and (room or not needRoom) and not IsBlocked(link, key) then
                 M.store.questRR[itemID] = key
                 M:Debug("quest %s -> %s (need %s)", link, MMT.Repr(key), need)
                 return key, index
@@ -402,6 +435,29 @@ local function NextQuestReceiver(slot, link, planned, needOf)
             M:Debug("quest %s skip %s: need=%s candidate=%s free=%s blocked=%s", link, MMT.Repr(key),
                 tostring(need), tostring(index), tostring(free), tostring(IsBlocked(link, key)))
         end
+    end
+    return nil
+end
+
+---------------------------------------------------------------------------
+-- Items no role or rule wants: round robin across the team (keeps the reserve)
+---------------------------------------------------------------------------
+NextRoundRobin = function(slot, link, planned)
+    local order = MMT.SortedMembers()
+    if #order == 0 then return nil end
+    local start = 1
+    for i, key in ipairs(order) do if key == M.store.lootRR then start = i + 1 end end
+    for n = 0, #order - 1 do
+        local key = order[(start - 1 + n) % #order + 1]
+        local index = CandidateIndex(slot, key)
+        local free = Free(key, planned)
+        if index and free and free > M.db.reserve and not IsBlocked(link, key) then
+            M.store.lootRR = key
+            M:Debug("no rule %s -> %s (round robin)", link, MMT.Repr(key))
+            return key, index
+        end
+        M:Debug("round robin %s skip %s: candidate=%s free=%s blocked=%s", link, MMT.Repr(key),
+            tostring(index), tostring(free), tostring(IsBlocked(link, key)))
     end
     return nil
 end
@@ -415,7 +471,8 @@ local function Plan(needOf)
     for slot = 1, GetNumLootItems() do
         local slotType = GetLootSlotType and GetLootSlotType(slot) or ITEM_SLOT
         local link = GetLootSlotLink(slot)
-        local _, _, _, _, quality, locked, isQuestItem = GetLootSlotInfo(slot)
+        local _, _, _, _, quality, locked = GetLootSlotInfo(slot)
+        local isQuestItem = link and IsQuestLoot(slot, link)
         local bind = link and select(14, MMT.ItemInfo(link))
         if slotType == ITEM_SLOT and link and not locked and isQuestItem and cfg.questRR and bind ~= BOP then
             local key, index = NextQuestReceiver(slot, link, planned, needOf)
@@ -426,15 +483,16 @@ local function Plan(needOf)
             else
                 M:Debug("left quest item %s: no team member needs or can receive it", link)
             end
-        elseif slotType == ITEM_SLOT and link and not locked and cfg.byRoles and (isQuestItem or (quality or 0) >= threshold) then
+        elseif slotType == ITEM_SLOT and link and not locked and (cfg.byRoles or cfg.unassigned == "RR")
+            and (isQuestItem or (quality or 0) >= threshold) then
             if bind == BOP then
                 AnnounceBoP(link)                -- never auto-assigned, never looted
             elseif bind == nil then
                 M:Debug("left %s: item data not loaded yet, can't rule out Bind on Pickup", link)
             else
-                local key, index, role = Choose(slot, link, planned)
+                local key, index, role, rr = Choose(slot, link, planned, isQuestItem)
                 if key then
-                    plan[#plan + 1] = { slot = slot, link = link, key = key, index = index, role = role }
+                    plan[#plan + 1] = { slot = slot, link = link, key = key, index = index, role = role, rr = rr }
                     planned[key] = (planned[key] or 0) + 1
                     if not MMT.IsSelf(key) then NoteGiven(key) end
                 else
@@ -450,7 +508,10 @@ local function Plan(needOf)
                 pending[p.slot] = { link = p.link, key = p.key }
                 GiveMasterLoot(p.slot, p.index)
                 M:Debug("GiveMasterLoot(%d, %d) %s -> %s", p.slot, p.index, p.link, MMT.Repr(p.key))
-                if cfg.report then
+                if p.rr and cfg.rrNotice then
+                    MMT.Print("%s |cffffd100is not part of any role or rule, so it was given round robin to|r %s|cffffd100.|r",
+                        p.link, MMT.FullDisplay(p.key))
+                elseif cfg.report then
                     MMT.Print("Gave %s to %s%s.", p.link, MMT.FullDisplay(p.key), p.role and (" (" .. p.role .. ")") or "")
                 end
             end
@@ -461,15 +522,14 @@ end
 
 local function Distribute()
     local cfg = M.db
-    if busy or not M.enabled or not (cfg.byRoles or cfg.questRR) or not mod.IsMasterLooter() then return end
+    if busy or not M.enabled or not (cfg.byRoles or cfg.questRR or cfg.unassigned == "RR") or not mod.IsMasterLooter() then return end
     busy = true
     -- quest items in this corpse? ask the team first who still needs them
     local names, seen = {}, {}
     if cfg.questRR then
         for slot = 1, GetNumLootItems() do
             local link = GetLootSlotLink(slot)
-            local isQuestItem = select(7, GetLootSlotInfo(slot))
-            local name = isQuestItem and ItemName(link)
+            local name = link and IsQuestLoot(slot, link) and ItemName(link)
             if name and not seen[name] then seen[name] = true; names[#names + 1] = name end
         end
     end

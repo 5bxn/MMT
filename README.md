@@ -98,6 +98,13 @@ Saved data from MMT 0.1.x is converted automatically.
   The master looter first asks the team who still needs the item (each client checks
   its quest log) and skips characters whose objective is complete. If the game still
   refuses a hand-out, that character is skipped for that item for 10 minutes.
+  The "keep free bag slots" reserve doesn't apply to quest items: they are given even
+  into the last free slot, and with full bags they are still tried (they may stack).
+  Items are recognised as quest items by the loot window or by their item class.
+  "No role wants it": leave for manual assignment, give to the master looter, or
+  "Round robin to the team" (in turns, keeping the reserve; not for quest items or
+  Bind on Pickup). "Say so in chat" prints "[Item] is not part of any role or rule,
+  so it was given round robin to <Name>." (only for you).
 - **Quest Tracker** (module): replaces the Blizzard quest tracker with a team tracker:
   Zone > [Level] Quest > Objective > one row per team member with their progress
   ("3/8", "done", "not on quest"). Mouse:
@@ -113,7 +120,8 @@ Saved data from MMT 0.1.x is converted automatically.
   alignment, outline, and font, size and colour for each of the four levels.
   Quest automation lives here too: accept from NPCs and from the group, turn in, skip
   grey quests, announce "ready for turn-in", share new quests automatically, announce
-  quests that can't be shared, and abandon a quest on the whole team (asks first:
+  quests that can't be shared, announce looted items that start a quest ("Looted
+  [Item] - it starts a quest!", on by default), and abandon a quest on the whole team (asks first:
   "Do you want to abort this quest on your entire team?"). The quest settings of
   Core > Automations are copied over once.
 - **Automations**: gossip to vendor, click through dialog-only NPCs (plain dialog lines;
