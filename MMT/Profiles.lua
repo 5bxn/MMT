@@ -51,6 +51,12 @@ ns.defaults = {
         point       = { "TOPLEFT", "TOPLEFT", 30, -250 },
     },
 
+    -- team communication
+    comm = {
+        guild = false,   -- send team messages on the guild channel (all characters in one guild)
+        fast  = false,   -- 1200 instead of 800 bytes per second
+    },
+
     -- settings of modules: [moduleName] = { ... } (defaults come from the module)
     modules = {},
 

@@ -96,7 +96,7 @@ ns.RegisterPage("team", "Team", function(page)
     col:Header("Team members")
     col:Note("The characters of your team, in the order the XP window shows them. Green dot = online with MMT.")
 
-    local list = List(page, PAGE_W, 11, 22, function(parent, i)
+    local list = List(page, PAGE_W, 8, 22, function(parent, i)
         local row = CreateFrame("Frame", nil, parent)
         RowBackground(row, i)
         row.dot = row:CreateTexture(nil, "ARTWORK")
@@ -130,7 +130,7 @@ ns.RegisterPage("team", "Team", function(page)
         local roles = table.concat(ns.MemberRoleList(key), ", ")
         row.roles:SetText(roles ~= "" and roles or "no roles")
     end)
-    col:Add(list, 11 * 22)
+    col:Add(list, 8 * 22)
     local empty = UI.Label(page, "No team members yet. Group up and press \"Add group\", or type a name below.")
     empty:SetPoint("TOPLEFT", list, "TOPLEFT", 8, -4)
     empty:SetTextColor(0.5, 0.5, 0.5)
@@ -181,11 +181,41 @@ ns.RegisterPage("team", "Team", function(page)
     col:Add(youHover, UI.ROW)
     col:Note("Every account keeps its own team. Add the team on each client, or send it with Profiles > Sync to team (/mmt sync).")
 
+    col:Header("Communication")
+    local gg, sg = Opt("comm", "guild")
+    local guildCheck = UI.Check(page, 250, "Use guild channel", gg, function(v)
+        sg(v)
+        if v and ns.ReadGuildRoster then
+            ns.ReadGuildRoster()
+            if C_GuildInfo and C_GuildInfo.GuildRoster then C_GuildInfo.GuildRoster() end
+        end
+    end, "One message on the guild channel reaches every team member in your guild, grouped or not, and the guild roster shows who is online. Team members outside the guild still get whispers. Every guild member running MMT receives the messages too (and ignores them). Turn it on on every client.")
+    col:Add(guildCheck, 0)
+    local gf, sf = Opt("comm", "fast")
+    local fast = UI.Check(page, 250, "Faster sending (1200 bytes/s)", gf, sf,
+        "Large transfers (settings sync, item and quest data) go out at up to 1200 instead of 800 bytes per second. Faster, but very large amounts at once can get a client disconnected.")
+    fast:SetPoint("TOPLEFT", page, "TOPLEFT", 270, col.y)
+    col:Space(UI.ROW)
+    local commInfo = col:Note("")
+
     page.OnRefresh = function()
         local members = ns.SortedMembers()
         list:Render(members)
         empty:SetShown(#members == 0)
         you:SetText("You are playing " .. ns.FirstName(ns.PlayerFull()) .. ".")
+        if ns.db.comm.guild then
+            if not IsInGuild() then
+                commInfo:SetText("|cffff6666Not in a guild:|r messages go to the group and by whisper as usual.")
+            else
+                local outside = ns.TeamOutsideGuild()
+                local names = {}
+                for _, k in ipairs(outside) do names[#names + 1] = ns.FirstName(k) end
+                commInfo:SetText(#outside == 0 and "Guild mode: all team members are in your guild."
+                    or ("Not in your guild (reached by whisper): " .. table.concat(names, ", ")))
+            end
+        else
+            commInfo:SetText("Team messages go to your group, and by whisper to members outside it. Large transfers go by whisper outside instances.")
+        end
     end
     ns.Listen("STATUS_CHANGED", function() if page:IsVisible() then list:Render(ns.SortedMembers()) end end)
 end)

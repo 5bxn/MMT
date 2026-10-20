@@ -94,6 +94,20 @@ function ns.BuildDebugReport()
     local own = ns.status[ns.PlayerFull() or ""] or {}
     add(("Status: money=%s free=%s/%s durability avg=%s lowest=%s"):format(tostring(own.money), tostring(own.free),
         tostring(own.slots), tostring(own.durAvg), tostring(own.durMin)))
+    do
+        local st = ns.commStats or {}
+        local qa, qn, qb = 0, 0, 0
+        if ns.CommQueued then qa, qn, qb = ns.CommQueued() end
+        add(("Comm: sent=%s bytes=%s throttled=%s failed=%s queued alert/normal/bulk=%d/%d/%d (max %s) rate=%s B/s guildMode=%s inGuild=%s inInstance=%s"):format(
+            tostring(st.sent), tostring(st.bytes), tostring(st.throttled), tostring(st.failed), qa, qn, qb,
+            tostring(st.maxQueued), tostring(ns.CommRate and ns.CommRate()), tostring(ns.GuildMode and ns.GuildMode()),
+            tostring(IsInGuild()), tostring(IsInInstance and IsInInstance())))
+        if ns.GuildMode and ns.GuildMode() then
+            local outside = {}
+            for _, k in ipairs(ns.TeamOutsideGuild()) do outside[#outside + 1] = Repr(k) end
+            add("  team outside the guild: " .. (#outside > 0 and table.concat(outside, ", ") or "none"))
+        end
+    end
     add(("Layer hop: pending=%s source=%s countdown=%s watched events=[%s] api=%s"):format(
         tostring(ns.hop.pending), tostring(ns.hop.source), tostring(ns.HopCountdownRunning()),
         table.concat(ns.hop.events or {}, ","),

@@ -39,7 +39,7 @@ ns.hopRemote = {}     -- [teamKey] = true while that member has a hop pending (L
 ns.hopRemoteEnd = {}  -- [teamKey] = GetTime() when that member's countdown ends (LHC:<seconds>)
 
 local function SendCountdown(seconds)
-    if ns.SendToTeam then ns.SendToTeam("LHC:" .. seconds, true) end
+    if ns.SendToTeam then ns.SendToTeam("LHC:" .. seconds, true, "ALERT") end
 end
 
 function ns.CancelHopCountdown(reason)
@@ -115,7 +115,7 @@ function ns.SetHopPending(on, source)
     else
         ns.CancelHopCountdown(source ~= "confirmed" and "the game no longer offers it" or nil)
     end
-    if ns.SendToTeam then ns.SendToTeam(on and "LH:1" or "LH:0", true) end
+    if ns.SendToTeam then ns.SendToTeam(on and "LH:1" or "LH:0", true, "ALERT") end
     ns.Fire("STATUS_CHANGED")
 end
 
@@ -126,7 +126,7 @@ function ns.HopClicked(key)
         return
     end
     -- a teammate's hop: ask that client to confirm it
-    ns.SendAddon("LHGO", "WHISPER", ns.WhisperTarget(key))
+    ns.SendAddon("LHGO", "WHISPER", ns.WhisperTarget(key), "ALERT")
     ns.Print("Asked %s to take the layer hop.", ns.FullDisplay(key))
 end
 

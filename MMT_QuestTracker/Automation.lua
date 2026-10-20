@@ -256,7 +256,7 @@ local function OnAbandoned()
     local link = mod.QuestLink(q.id, q.title)
     MMT.UI.Confirm(("You abandoned %s.\n\nDo you want to abort this quest on your entire team?"):format(link),
         "Yes", function()
-            MMT.SendToTeam("QTAB:" .. q.id, true)
+            MMT.SendToTeam("QTAB:" .. q.id, true, "ALERT")
             MMT.Print("Asked your team to abandon %s.", link)
         end, "No")
 end

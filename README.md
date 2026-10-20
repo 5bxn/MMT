@@ -1,7 +1,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.8.3: core addon (MMT) plus optional modules (MMT_*).
+Version 0.8.4: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -139,6 +139,23 @@ Team abandon is QTAB:<questID>.
 - `/mmt` settings, `/mmt xp` toggle XP window, `/mmt trade` refill open trade,
   `/mmt sync` send the core settings to the team, `/mmt sync <module>` only that module's settings, `/mmt modules` installed
   modules, `/mmt scale <percent>` settings window size, `/mmt help` help page, `/mmt reset` reset profile.
+
+## Team communication
+- All messages go through one send queue in the core with three priorities (alerts such
+  as follow and layer hop first, then normal messages, large transfers last). It keeps to
+  the game's limit of about 10 messages per addon prefix and then 1 per second on group
+  and guild channels, caps the data rate (800 bytes/s; Team > "Faster sending": 1200) and
+  sends throttled messages again.
+- Large transfers (settings sync, Item Compare and Quest Tracker snapshots) use their own
+  prefix "MMTB", so they never delay the normal messages, and outside instances they go
+  by whisper to each team member (whispers aren't throttled there).
+- Team > "Use guild channel": one message on the guild channel reaches every team member
+  in your guild, grouped or not; the guild roster tells who is online. Members outside the
+  guild still get whispers. Every client needs the same setting.
+- Modules: `MMT.SendToTeam(msg, onlyOnline, prio)`, `MMT.SendAddon(msg, channel, target, prio)`,
+  `MMT.SendLong(text[, target])` for texts of any size (Help > Team communication).
+- All clients need MMT 0.8.4 or later for large transfers (older versions don't listen
+  on "MMTB").
 
 ## Two accounts = two separate teams
 Every account keeps its own saved settings, so the team must exist on each client:

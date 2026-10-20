@@ -300,7 +300,7 @@ M:Listen("TEAM_MESSAGE", function(key, sender, text)
     if not id then return end
     local codes = {}
     for name in names:gmatch("[^;]+") do codes[#codes + 1] = mod.NeedCode(name) end
-    MMT.SendAddon(("QNA:%s:%s"):format(id, table.concat(codes)), "WHISPER", sender)
+    MMT.SendAddon(("QNA:%s:%s"):format(id, table.concat(codes)), "WHISPER", sender, "ALERT")
     M:Debug("quest need asked by %s: %s -> %s", MMT.Repr(sender), names, table.concat(codes))
 end)
 
@@ -339,7 +339,7 @@ local function AskQuestNeed(names, done)
         asks[id] = nil
     end }
     if #waitFor == 0 then asks[id].finish() return end
-    MMT.SendToTeam(("QNQ:%s:%s"):format(id, table.concat(names, ";")), true)
+    MMT.SendToTeam(("QNQ:%s:%s"):format(id, table.concat(names, ";")), true, "ALERT")
     C_Timer.After(0.8, function() if asks[id] then asks[id].finish() end end)
 end
 

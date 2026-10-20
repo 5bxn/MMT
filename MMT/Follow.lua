@@ -103,7 +103,7 @@ function ns.OwnFollowField()
     return own.following and "1" or "0"
 end
 
-local function Send(msg) if ns.SendToTeam then ns.SendToTeam(msg, true) end end
+local function Send(msg) if ns.SendToTeam then ns.SendToTeam(msg, true, "ALERT") end end
 
 local function InCombat()
     return (UnitAffectingCombat and UnitAffectingCombat("player")) or InCombatLockdown()
