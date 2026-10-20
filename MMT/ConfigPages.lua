@@ -651,7 +651,12 @@ ns.RegisterPage("ftl", "FTL", function(page)
     status = StatusLine(page)
     status:SetWidth(COL_W)
     R:Add(status, UI.ROW)
-    R:Note("Write {FTL} where the leader's name goes. Every client keeps these macros up to date; /mmt sync shares them with the team.")
+    R:Note("Write {FTL} where the leader's name goes. Every client keeps these macros up to date.")
+    R:Space(6)
+    R:Header("Sending the macros to the team")
+    R:Note("Same account and profile: nothing to do. Other accounts: log them in, then click "
+        .. "Profiles > Sync to team (or /mmt sync) here and accept on each client. This sends all core "
+        .. "settings, not only the macros. Put the macros on each character's bar once (Drag to bar).")
 
     page.OnRefresh = function()
         local macros = Macros()

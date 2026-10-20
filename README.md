@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.8.6: core addon (MMT) plus optional modules (MMT_*).
+Version 0.8.7: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -74,6 +74,9 @@ Saved data from MMT 0.1.x is converted automatically.
   character that isn't following. The idea comes from ISBoxer, but unlike there the
   FTL target **cannot change during combat**: WoW only lets addons edit macros outside
   combat, so a change in combat is applied when combat ends.
+  Sending the macros to the team: characters on the same account with the same profile
+  already have them; for other accounts use Profiles > Sync to team (`/mmt sync`). Each
+  character still needs the macros on an action bar once.
 - **Item Compare** (module): set a key, hover an item and press it to see what every team
   member wears in that slot (both slots for rings, trinkets and one-hand weapons),
   with the stat and item level changes if they equipped the hovered item.
