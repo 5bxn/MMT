@@ -1,7 +1,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.8.0: core addon (MMT) plus optional modules (MMT_*).
+Version 0.8.1: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -43,12 +43,17 @@ Saved data from MMT 0.1.x is converted automatically.
   offers a layer/phase switch, a pulsing red "Layer Hop" appears left of the name.
   Click it to accept in 3 seconds (a teammate's tag makes their client accept), or let
   MMT accept automatically after X seconds. Both count down in chat. Hover a row for all details of that member,
-  right-click the window for settings. "Click-through" turns the mouse off for it.
+  Mouse on a member: click invites, right-click inspects, Ctrl-click shows the talents,
+  Ctrl-right-click removes from the group (on yourself: character pane, talents, leave
+  group). Shift + drag moves the window, Shift-right-click opens the settings.
+  "Click-through" turns the mouse off for it. During a layer hop countdown every
+  client's XP window shows "Layer Hop 5, 4, ...".
   "Follow": every client reports when its character starts or stops following (/follow).
   A member who stops gets a red, pulsing row; the client of the character that was
   followed shows the raid warning "<Name> stopped following" and plays the raid warning
   sound. Options: check /follow of team, warning, sound, ignore breaks during combat
-  (then it only counts if the character still isn't following after its combat).
+  (then it only counts if the character still isn't following some seconds after its
+  combat; default 5, adjustable).
   Flight paths don't count as a break.
 - **Item Compare** (module): set a key, hover an item and press it to see what every team
   member wears in that slot (both slots for rings, trinkets and one-hand weapons),

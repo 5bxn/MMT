@@ -16,17 +16,114 @@ f.bg = f:CreateTexture(nil, "BACKGROUND")
 f.bg:SetAllPoints()
 f.rows = {}
 
+-- moving: Shift + drag (unless locked)
+local dragging, dragEnd = false, 0
 f:SetScript("OnDragStart", function(self)
-    if not ns.db.xp.locked then self:StartMoving() end
+    if ns.db.xp.locked or not IsShiftKeyDown() then return end
+    dragging = true
+    self:StartMoving()
 end)
 f:SetScript("OnDragStop", function(self)
+    if not dragging then return end
+    dragging, dragEnd = false, GetTime()
     self:StopMovingOrSizing()
     local point, _, relPoint, x, y = self:GetPoint()
     ns.db.xp.point = { point, relPoint, math.floor(x + 0.5), math.floor(y + 0.5) }
 end)
+-- the window's own border / background: right-click = settings
 f:SetScript("OnMouseUp", function(_, button)
-    if button == "RightButton" then ns.ToggleConfig("xp") end
+    if button == "RightButton" and GetTime() - dragEnd > 0.2 then ns.ToggleConfig("xp") end
 end)
+
+---------------------------------------------------------------------------
+-- Row actions
+--   click: invite   right-click: inspect   Ctrl-click: talents
+--   Ctrl-right-click: remove from the group   Shift-right-click: settings
+---------------------------------------------------------------------------
+local function GroupUnit(key)
+    if ns.IsSelf(key) then return "player" end
+    return ns.UnitForMember(key)
+end
+
+local function CanLead()
+    return not IsInGroup() or UnitIsGroupLeader("player") or UnitIsGroupAssistant("player")
+end
+
+local function Invite(key)
+    if ns.IsSelf(key) then return end
+    if ns.UnitForMember(key) then ns.Print("%s is already in your group.", ns.FullDisplay(key)) return end
+    if not CanLead() then ns.Print("Only the group leader can invite.") return end
+    local invite = (C_PartyInfo and C_PartyInfo.InviteUnit) or InviteUnit
+    local ok, err = pcall(invite, ns.WhisperTarget(key))
+    ns.Debug("XP window invite %s -> %s %s", ns.Repr(ns.WhisperTarget(key)), tostring(ok), tostring(err or ""))
+    if ok then ns.Print("Invited %s.", ns.FullDisplay(key)) end
+end
+
+local function Remove(key)
+    if ns.IsSelf(key) then
+        if not IsInGroup() then return end
+        local leave = (C_PartyInfo and C_PartyInfo.LeaveParty) or LeaveParty
+        pcall(leave)
+        ns.Print("You left the group.")
+        return
+    end
+    local unit = ns.UnitForMember(key)
+    if not unit then ns.Print("%s is not in your group.", ns.FullDisplay(key)) return end
+    if not UnitIsGroupLeader("player") then ns.Print("Only the group leader can remove members.") return end
+    local uninvite = (C_PartyInfo and C_PartyInfo.UninviteUnit) or UninviteUnit
+    local ok, err = pcall(uninvite, GetUnitName(unit, true))
+    ns.Debug("XP window uninvite %s -> %s %s", tostring(unit), tostring(ok), tostring(err or ""))
+    if ok then ns.Print("Removed %s from the group.", ns.FullDisplay(key)) end
+end
+
+-- Blizzard windows are only opened outside combat (opening them from addon
+-- code in combat can trigger the "blocked action" message)
+local function NotInCombat()
+    if InCombatLockdown() then ns.Print("Not in combat.") return false end
+    return true
+end
+
+local function Inspect(key, talents)
+    if not NotInCombat() then return end
+    if ns.IsSelf(key) then
+        if talents then
+            if ToggleTalentFrame then pcall(ToggleTalentFrame)
+            elseif PlayerSpellsUtil and PlayerSpellsUtil.ToggleClassTalentFrame then pcall(PlayerSpellsUtil.ToggleClassTalentFrame) end
+        elseif ToggleCharacter then
+            pcall(ToggleCharacter, "PaperDollFrame")
+        end
+        return
+    end
+    local unit = GroupUnit(key)
+    if not unit then ns.Print("%s must be in your group to be inspected.", ns.FullDisplay(key)) return end
+    if CanInspect and not CanInspect(unit) then ns.Print("%s is too far away to inspect.", ns.FullDisplay(key)) return end
+    if not InspectUnit then return end
+    local ok, err = pcall(InspectUnit, unit)
+    ns.Debug("InspectUnit(%s) -> %s %s", unit, tostring(ok), tostring(err or ""))
+    if ok and talents then
+        -- switch the inspect window to its talent page once the data is there
+        C_Timer.After(0.6, function()
+            if InspectFrameTab3 and InspectFrameTab3:IsShown() then
+                pcall(InspectFrameTab3.Click, InspectFrameTab3)          -- Classic layout: tab 3 = Talents
+            elseif InspectPaperDollFrame and InspectPaperDollFrame.ViewButton then
+                pcall(InspectPaperDollFrame.ViewButton.Click, InspectPaperDollFrame.ViewButton)
+            end
+        end)
+    end
+end
+
+local function RowClick(row, button)
+    local key = row.key
+    if not key or dragging or GetTime() - dragEnd < 0.2 then return end
+    local shift, ctrl = IsShiftKeyDown(), IsControlKeyDown()
+    if button == "RightButton" and shift then ns.ToggleConfig("xp") return end
+    if shift then return end                      -- Shift + drag moves the window
+    if button == "LeftButton" then
+        if ctrl then Inspect(key, true) else Invite(key) end
+    elseif button == "RightButton" then
+        if ctrl then Remove(key) else Inspect(key, false) end
+    end
+end
 
 -- mouseover on a row: full name and all details of that member
 local function RowTooltip(row)
@@ -61,7 +158,14 @@ local function RowTooltip(row)
             tip:AddDoubleLine("Follow", t and ("following " .. t) or "following", 1, 1, 1, 0.4, 1, 0.4)
         end
     end
-    if not ns.db.xp.locked then tip:AddLine("Drag to move, right-click for settings.", 0.5, 0.5, 0.5) end
+    tip:AddLine(" ")
+    if not ns.IsSelf(key) then
+        tip:AddLine("Click: invite   Right-click: inspect", 0.5, 0.5, 0.5)
+        tip:AddLine("Ctrl-click: talents   Ctrl-right-click: remove from group", 0.5, 0.5, 0.5)
+    else
+        tip:AddLine("Right-click: character   Ctrl-click: talents   Ctrl-right-click: leave group", 0.5, 0.5, 0.5)
+    end
+    tip:AddLine((ns.db.xp.locked and "" or "Shift-drag: move   ") .. "Shift-right-click: settings", 0.5, 0.5, 0.5)
     tip:Show()
 end
 
@@ -128,7 +232,7 @@ local function Row(i)
     row:RegisterForDrag("LeftButton")
     row:SetScript("OnDragStart", function() f:GetScript("OnDragStart")(f) end)
     row:SetScript("OnDragStop", function() f:GetScript("OnDragStop")(f) end)
-    row:SetScript("OnMouseUp", function(_, button) f:GetScript("OnMouseUp")(f, button) end)
+    row:SetScript("OnMouseUp", function(self, button) if self:IsMouseOver() then RowClick(self, button) end end)
     row:SetScript("OnEnter", RowTooltip)
     row:SetScript("OnLeave", function() GameTooltip:Hide() end)
     f.rows[i] = row
@@ -260,7 +364,8 @@ local function Update()
         local left = 4
         if hop then
             ns.ApplyFont(row.hop.text, x.font, x.size, x.outline)
-            row.hop.text:SetText(ns.HopCountdownRunning() and ns.IsSelf(key) and "Layer Hop..." or "Layer Hop")
+            local cdLeft = ns.HopCountdownFor and ns.HopCountdownFor(key)
+            row.hop.text:SetText(cdLeft and ("Layer Hop " .. cdLeft) or "Layer Hop")
             row.hop:SetSize(row.hop.text:GetStringWidth() + 4, h)
             row.hop:Show()
             if not row.hop.pulse:IsPlaying() then row.hop.pulse:Play() end

@@ -13,7 +13,7 @@
 -- of the character that was followed (the one you play), so they don't go off
 -- on every client at once; if that character isn't in the team, every client
 -- warns. With "ignore during combat", a break in combat is only reported if
--- the character still isn't following when its combat ends.
+-- the character still isn't following a few seconds (setting) after its combat ends.
 
 local _, ns = ...
 
@@ -120,7 +120,7 @@ end)
 -- combat over and still not following again: now it counts as a break
 ns.On("PLAYER_REGEN_ENABLED", function()
     if not own.combatBreak then return end
-    C_Timer.After(2, function()
+    C_Timer.After(ns.db.xp.followCombatDelay or 5, function()
         if own.following or not own.combatBreak then return end
         own.combatBreak = false
         Send("FOL:0:")

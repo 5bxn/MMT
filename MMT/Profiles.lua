@@ -29,6 +29,7 @@ ns.defaults = {
         followWarn     = true,   -- raid warning "<Name> stopped following"
         followSound    = true,   -- raid warning sound
         followIgnoreCombat = true, -- breaks in combat only count if still not following after combat
+        followCombatDelay  = 5,    -- ... this many seconds after combat
         showBars    = true,
         classColors = true,
         showGold    = true,
