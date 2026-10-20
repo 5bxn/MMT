@@ -590,7 +590,7 @@ ns.RegisterPage("ftl", "FTL", function(page)
     L:Check("Chat line when the leader changes", ga, sa)
 
     L:Header("Changing the leader")
-    L:Note("- Click the character in the XP window\n- Key binding \"Make this character the leader\" (Esc > Options > Keybindings > AddOns > MMT)\n- /mmt leader (this character) or /mmt leader <name>\n- Automatically when you move a character that isn't following (setting above). Not with movement keys broadcast to every window.")
+    L:Note("- Click the character in the XP window\n- Key binding \"Make this character the leader\" (Esc > Options > Keybindings > AddOns > MMT)\n- /mmt leader (this character) or /mmt leader <name>\n- Automatically when you move a character on its own (setting above). Not when several team characters start moving at once (movement keys or Interact with Target broadcast to every window: the leader stays), and not while following, feared or charmed.")
     local current = L:Note("")
 
     -- right: the macros ---------------------------------------------------

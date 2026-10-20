@@ -13,7 +13,18 @@
 --   * the key binding "MMT: Make this character the leader",
 --   * /mmt leader (this character) or /mmt leader <name>,
 --   * automatically when you move a character that isn't following (setting).
--- and sent to the team: FTL:<server time>:<team key> (the newest wins).
+-- and sent to the team: FTL:<server time>:<team key> (the newest wins; two
+-- claims in the same second: the team key that sorts first wins, on every
+-- client alike, so the clients can't end up with different leaders).
+--
+-- Automatic detection ignores
+--   * movement while following, on a flight path, or without control of the
+--     character (feared, charmed, confused, mind controlled),
+--   * movement of several team characters at once (a movement key or
+--     "Interact with Target" broadcast to every window): every client reports
+--     when its character starts moving on its own (FTLM), and a character only
+--     becomes the leader if no other team character started moving within
+--     MOVE_WINDOW seconds of it. The current leader stays then.
 -- The leader is kept account-wide (MMTDB.ftl), so a /reload keeps it.
 
 local _, ns = ...
@@ -145,6 +156,11 @@ end
 ---------------------------------------------------------------------------
 local function Now() return (GetServerTime and GetServerTime()) or time() end
 
+-- same second: the team key that sorts first wins (the same answer on every client)
+local function Wins(key, other)
+    return ns.NormKey(key) < ns.NormKey(other)
+end
+
 local function Send(msg, target)
     if target then ns.SendAddon(msg, "WHISPER", target, "ALERT")
     elseif ns.SendToTeam then ns.SendToTeam(msg, true, "ALERT") end
@@ -159,7 +175,10 @@ function ns.SetFTLLeader(key, fromTeam, when)
         st.time = math.max(st.time or 0, when)
         return
     end
-    if fromTeam and st.time and when < st.time then return end   -- an older change
+    if fromTeam and st.time then
+        if when < st.time then return end                                  -- an older change
+        if when == st.time and st.leader and not Wins(key, st.leader) then return end
+    end
     st.leader, st.time = key, when
     ns.Debug("FTL: leader %s (%s)", ns.Repr(key), fromTeam and "from team" or "here")
     local status = ns.FTLUpdateMacros("leader")
@@ -177,9 +196,13 @@ function ns.SetFTLLeader(key, fromTeam, when)
     ns.Fire("STATUS_CHANGED")
 end
 
+-- a claim here is always newer than the leader we know (the same second
+-- would be a tie that this claim might lose on the other clients)
 function ns.ClaimFTLLeader()
     local me = ns.PlayerFull()
-    if me then ns.SetFTLLeader(me) end
+    if not me then return end
+    local st = State()
+    ns.SetFTLLeader(me, false, math.max(Now(), (st.time or 0) + 1))
 end
 
 -- key binding (Bindings.xml)
@@ -203,24 +226,64 @@ ns.Listen("MEMBER_ONLINE", function(key, sender)
 end)
 
 ---------------------------------------------------------------------------
--- Automatic: moving a character that isn't following makes it the leader
+-- Automatic: moving a character on its own makes it the leader
 ---------------------------------------------------------------------------
+local MOVE_WINDOW = 1.2   -- seconds: team characters starting to move this close together = broadcast
+local othersMoved = {}    -- [teamKey] = GetTime() of their last FTLM
+local lastReport = 0
+
 local function Moving()
     local speed = GetUnitSpeed and GetUnitSpeed("player")
     return speed and speed > 0
 end
 
+local function Plain(v) if v ~= nil and not ns.IsSecret(v) then return v end end
+
+-- moving, and because of the player: not following, no flight path, in control
+local function MovingOnItsOwn()
+    if not Moving() then return false end
+    if ns.IsFollowing and ns.IsFollowing() then return false end
+    if UnitOnTaxi and UnitOnTaxi("player") then return false end
+    if HasFullControl and Plain(HasFullControl()) == false then return false end   -- fear, charm, confuse
+    local me = ns.PlayerFull()
+    local cc = me and ns.CCState and ns.CCState(me)
+    if cc and cc.kind ~= "R" then return false end
+    return true
+end
+
+-- another team character started moving close to `at`
+local function OthersMovedNear(at)
+    for key, t in pairs(othersMoved) do
+        if math.abs(t - at) <= MOVE_WINDOW then return key end
+    end
+end
+
 ns.On("PLAYER_STARTED_MOVING", function()
     local cfg = ns.db.ftl
     if not (cfg.enabled and cfg.detect == "MOVE") then return end
-    if ns.IsFTLLeader(ns.PlayerFull()) then return end
     -- wait a moment: a short bump or the start of a follow doesn't count
     C_Timer.After(0.5, function()
-        if ns.IsFollowing and ns.IsFollowing() then return end
-        if UnitOnTaxi and UnitOnTaxi("player") then return end
-        if not Moving() then return end
-        if not ns.IsFTLLeader(ns.PlayerFull()) then ns.ClaimFTLLeader() end
+        if not MovingOnItsOwn() then return end
+        local at = GetTime()
+        -- every client reports, the leader too, so the others can see a broadcast
+        if at - lastReport > 1 then
+            lastReport = at
+            ns.SendToTeam("FTLM", true, "ALERT")
+        end
+        if ns.IsFTLLeader(ns.PlayerFull()) then return end
+        C_Timer.After(MOVE_WINDOW, function()
+            local other = OthersMovedNear(at)
+            if other then
+                ns.Debug("FTL: %s moved at the same time: broadcast, the leader stays", ns.Repr(other))
+                return
+            end
+            if not ns.IsFTLLeader(ns.PlayerFull()) then ns.ClaimFTLLeader() end
+        end)
     end)
+end)
+
+ns.Listen("TEAM_MESSAGE", function(key, sender, text)
+    if text == "FTLM" then othersMoved[key] = GetTime() end
 end)
 
 ---------------------------------------------------------------------------
