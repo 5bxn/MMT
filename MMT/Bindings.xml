@@ -1,5 +1,6 @@
 <Bindings>
-    <!-- Key bindings of the core. Modules bring their own (e.g. MMT_ItemCompare/Bindings.xml). -->
+    <!-- Key bindings of the core. Modules bring their own Bindings.xml with their OWN header
+         (e.g. header="MMT_ITEMCOMPARE"): a header name may exist only once in the game. -->
     <Binding name="MMT_FTL_LEADER" header="MMT" category="ADDONS">
         MMT_FTL_SetLeader()
     </Binding>
