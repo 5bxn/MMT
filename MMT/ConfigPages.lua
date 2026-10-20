@@ -405,7 +405,12 @@ ns.RegisterPage("xp", "XP Window", function(page)
     L:Check("Show level", Opt("xp", "showLevel"))
     local gr, sr = Opt("xp", "showRested")
     L:Check("Show rested XP (%)", gr, sr, "Rested XP in percent of the current level, e.g. R 35%. Also shaded on the bar.")
-    L:Check("Show XP bars", Opt("xp", "showBars"))
+    L:Check("Show bars", Opt("xp", "showBars"))
+    local gbm, sbm = Opt("xp", "barMode")
+    L:Cycle("Bar shows", {
+        { value = "XP", text = "Experience" },
+        { value = "REP", text = "Reputation (watched faction)" },
+    }, gbm, sbm)
     L:Check("Class colours", Opt("xp", "classColors"))
 
     L:Header("Gold, bags & durability")
@@ -431,7 +436,6 @@ ns.RegisterPage("xp", "XP Window", function(page)
     L:Check("Accept the layer hop automatically", gau, sau, "Counts down in chat, then accepts.")
     local gd, sd = Opt("xp", "layerHopDelay")
     L:Slider("Accept after (seconds)", 1, 30, 1, gd, sd)
-    L:Note("Tip: with many values per row, widen the window (Width) or use a smaller font.")
 
     local R = UI.Column(page, COL2_X, 0, COL_W)
     R:Header("Look")

@@ -1,7 +1,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.8.2: core addon (MMT) plus optional modules (MMT_*).
+Version 0.8.3: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -39,7 +39,10 @@ Saved data from MMT 0.1.x is converted automatically.
   Herbs, Ore/bars/stone, Enchanting, Potions, Food & drink, Reagents, Consumables, ...).
   Opening a trade with a team member puts the matching items in. You accept yourself.
 - **XP Window**: XP %, rested XP %, gold, free bag slots, durability (lowest item or
-  average), plus font, layout, size, scale and opacity. "Layer Hop": when the game
+  average), plus font, layout, size, scale and opacity. Gold, bags and durability sit in
+  their own column left of the name; the bar starts at the name. "Bar shows": experience
+  or the reputation of each character's watched faction (standing and %, faction in
+  the tooltip). "Layer Hop": when the game
   offers a layer/phase switch, a pulsing red "Layer Hop" appears left of the name.
   Click it to accept in 3 seconds (a teammate's tag makes their client accept), or let
   MMT accept automatically after X seconds. Both count down in chat. Hover a row for all details of that member,

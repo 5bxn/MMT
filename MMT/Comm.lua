@@ -77,6 +77,38 @@ local function Durability()
     return math.floor(cur / max * 100 + 0.5), math.floor(lowest + 0.5)
 end
 
+-- the faction watched on the reputation bar: { name, standing (1-8), cur, max }
+-- (cur/max within the current standing), or nil
+function ns.WatchedFaction()
+    if C_Reputation and C_Reputation.GetWatchedFactionData then
+        local ok, d = pcall(C_Reputation.GetWatchedFactionData)
+        if ok and type(d) == "table" and d.name and not ns.IsSecret(d.name) then
+            local lo, hi = d.currentReactionThreshold or 0, d.nextReactionThreshold or 0
+            return { name = d.name, standing = d.reaction or 4,
+                cur = math.max(0, (d.currentStanding or lo) - lo), max = math.max(0, hi - lo) }
+        end
+        return nil
+    end
+    if GetWatchedFactionInfo then
+        local name, standing, lo, hi, value = GetWatchedFactionInfo()
+        if name and not ns.IsSecret(name) then
+            return { name = name, standing = standing or 4, cur = (value or 0) - (lo or 0), max = (hi or 0) - (lo or 0) }
+        end
+    end
+    return nil
+end
+
+local function EncodeRep(r)
+    if not r then return "" end
+    return ("%d,%d,%d,%s"):format(r.standing or 0, r.cur or 0, r.max or 0, (tostring(r.name):gsub("[:|]", " ")))
+end
+
+local function DecodeRep(v)
+    local standing, cur, max, name = (v or ""):match("^(%d+),(%-?%d+),(%-?%d+),(.*)$")
+    if not standing then return nil end
+    return { standing = tonumber(standing), cur = tonumber(cur), max = tonumber(max), name = name }
+end
+
 function ns.UpdateOwnStatus()
     local level = UnitLevel("player") or 0
     local cur, max = UnitXP("player") or 0, UnitXPMax("player") or 0
@@ -91,6 +123,7 @@ function ns.UpdateOwnStatus()
     s.money = GetMoney()
     s.free, s.slots = BagSpace()
     s.durAvg, s.durMin = Durability()
+    s.rep = ns.WatchedFaction()
     local key = ns.PlayerFull()
     if key then ns.status[key] = s end
     return s
@@ -130,14 +163,15 @@ function ns.SendToTeam(msg, onlyOnline)
     end
 end
 
--- XP2:level:cur:max:class:rested:isMax:layerKey:layer:moduleData:money:freeSlots:slots:durAvg:durMin:follow
+-- XP2:level:cur:max:class:rested:isMax:layerKey:layer:moduleData:money:freeSlots:slots:durAvg:durMin:follow:rep
+-- rep = "standing,cur,max,faction name" (watched faction)
 -- moduleData is "key=value,..." from modules (e.g. eq=<equipment hash>)
 function ns.BuildXPMessage()
     local s = ns.UpdateOwnStatus()
-    return ("XP2:%d:%d:%d:%s:%d:%d:%s:%s:%s:%d:%d:%d:%s:%s:%s"):format(s.level, s.cur, s.max, s.class or "",
+    return ("XP2:%d:%d:%d:%s:%d:%d:%s:%s:%s:%d:%d:%d:%s:%s:%s:%s"):format(s.level, s.cur, s.max, s.class or "",
         s.rested, s.isMax and 1 or 0, s.layerKey or "", s.layer or "", ns.HeartbeatExtra(),
         s.money or 0, s.free or 0, s.slots or 0, s.durAvg or "", s.durMin or "",
-        ns.OwnFollowField and ns.OwnFollowField() or "")
+        ns.OwnFollowField and ns.OwnFollowField() or "", EncodeRep(s.rep))
 end
 
 function ns.BroadcastXP(onlyOnline)
@@ -204,6 +238,7 @@ local function ParseXP(text)
         money = tonumber(f[11]), free = tonumber(f[12]), slots = tonumber(f[13]),
         durAvg = tonumber(f[14]), durMin = tonumber(f[15]),
         follow = f[16],   -- "1" following, "0" not (missing from MMT before 0.8)
+        rep = DecodeRep(f[17]),   -- watched faction (from 0.8.3)
     }
 end
 
@@ -338,6 +373,7 @@ end
 ns.On("PLAYER_MONEY", StatusChanged)
 ns.On("BAG_UPDATE_DELAYED", StatusChanged)
 ns.On("UPDATE_INVENTORY_DURABILITY", StatusChanged)
+ns.On("UPDATE_FACTION", StatusChanged)
 
 ns.On("PLAYER_ENTERING_WORLD", function() ns.BroadcastXP(false) end)
 ns.On("PLAYER_XP_UPDATE", SoonBroadcast)

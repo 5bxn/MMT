@@ -211,6 +211,12 @@ local function RowTooltip(row)
     if s.durMin then
         tip:AddDoubleLine("Durability", ("lowest %d%%, average %d%%"):format(s.durMin, s.durAvg or s.durMin), 1, 1, 1, 1, 1, 1)
     end
+    if s.rep then
+        local c = FACTION_BAR_COLORS and FACTION_BAR_COLORS[s.rep.standing]
+        local standing = _G["FACTION_STANDING_LABEL" .. tostring(s.rep.standing)] or ""
+        tip:AddDoubleLine(s.rep.name, ("%s  %d / %d"):format(standing, s.rep.cur or 0, s.rep.max or 0),
+            1, 1, 1, c and c.r or 1, c and c.g or 1, c and c.b or 1)
+    end
     tip:AddDoubleLine("Layer", s.layer and ("#" .. s.layer) or "unknown", 1, 1, 1, 0.7, 0.7, 0.7)
     local phase = ns.PhaseOf(key)
     if phase then tip:AddDoubleLine("Phasing", phase, 1, 1, 1, 1, 0.25, 0.25) end
@@ -240,16 +246,28 @@ local function Row(i)
     local row = f.rows[i]
     if row then return row end
     row = CreateFrame("Frame", nil, f)
-    row.track = row:CreateTexture(nil, "BACKGROUND")
+    -- gold, bags, durability: own column left of the name
+    row.inv = row:CreateFontString(nil, "OVERLAY")
+    row.inv:SetPoint("LEFT", 4, 0)
+    row.inv:SetJustifyH("LEFT")
+    row.inv:SetWordWrap(false)
+    -- the bar starts at the name
+    row.bar = CreateFrame("Frame", nil, row)
+    row.bar:SetPoint("TOPRIGHT"); row.bar:SetPoint("BOTTOMRIGHT")
+    row.bar:SetPoint("LEFT", 0, 0)
+    row.track = row.bar:CreateTexture(nil, "BACKGROUND")
     row.track:SetAllPoints()
     row.track:SetColorTexture(1, 1, 1, 0.04)
-    row.fill = row:CreateTexture(nil, "BORDER")
+    row.fill = row.bar:CreateTexture(nil, "BORDER")
     row.fill:SetPoint("TOPLEFT"); row.fill:SetPoint("BOTTOMLEFT")
-    row.rest = row:CreateTexture(nil, "BORDER")
+    row.rest = row.bar:CreateTexture(nil, "BORDER")
     row.rest:SetPoint("TOPLEFT", row.fill, "TOPRIGHT"); row.rest:SetPoint("BOTTOMLEFT", row.fill, "BOTTOMRIGHT")
     row.rest:SetColorTexture(0.65, 0.45, 1.0, 0.30)
     -- red, pulsing mark: this member stopped following
-    row.alert = row:CreateTexture(nil, "ARTWORK")
+    row.alertLayer = CreateFrame("Frame", nil, row)   -- above the bar area
+    row.alertLayer:SetAllPoints()
+    row.alertLayer:SetFrameLevel(row:GetFrameLevel() + 3)
+    row.alert = row.alertLayer:CreateTexture(nil, "OVERLAY")
     row.alert:SetAllPoints()
     row.alert:SetColorTexture(1, 0.1, 0.1, 0.35)
     row.alert.pulse = row.alert:CreateAnimationGroup()
@@ -257,20 +275,20 @@ local function Row(i)
     local afade = row.alert.pulse:CreateAnimation("Alpha")
     afade:SetFromAlpha(1); afade:SetToAlpha(0.3); afade:SetDuration(0.8)
     row.alert:Hide()
-    row.value = row:CreateFontString(nil, "OVERLAY")
+    row.value = row.bar:CreateFontString(nil, "OVERLAY")
     row.value:SetPoint("RIGHT", -4, 0)
     row.value:SetJustifyH("RIGHT")
-    row.name = row:CreateFontString(nil, "OVERLAY")
+    row.name = row.bar:CreateFontString(nil, "OVERLAY")
     row.name:SetPoint("LEFT", 4, 0)
     row.name:SetPoint("RIGHT", row.value, "LEFT", -4, 0)
     row.name:SetJustifyH("LEFT")
     row.name:SetWordWrap(false)
-    row.line = row:CreateFontString(nil, "OVERLAY")
+    row.line = row.bar:CreateFontString(nil, "OVERLAY")
     row.line:SetPoint("LEFT", 4, 0)
     row.line:SetPoint("RIGHT", -4, 0)
     row.line:SetWordWrap(false)
     -- pulsing red "Layer Hop" left of the name; clickable even when the window is click-through
-    row.hop = CreateFrame("Button", nil, row)
+    row.hop = CreateFrame("Button", nil, row.bar)
     row.hop:SetPoint("LEFT", 2, 0)
     row.hop:SetFrameLevel(row:GetFrameLevel() + 5)
     row.hop.text = row.hop:CreateFontString(nil, "OVERLAY")
@@ -382,7 +400,33 @@ local function ValueText(key, s)
             parts[#parts + 1] = Hex(0.75, 0.6, 1) .. ("R %d%%"):format(math.floor(s.rested / s.max * 100 + 0.5)) .. "|r"
         end
     end
-    for _, part in ipairs(InventoryText(s)) do parts[#parts + 1] = part end
+    return table.concat(parts, "  ")
+end
+
+-- reputation mode: "<standing> 45%" of the watched faction
+local function StandingLabel(standing)
+    return _G["FACTION_STANDING_LABEL" .. tostring(standing)] or ("Standing " .. tostring(standing))
+end
+
+local function RepColour(standing)
+    local c = FACTION_BAR_COLORS and FACTION_BAR_COLORS[standing]
+    if c then return c.r, c.g, c.b end
+    return 0.3, 0.7, 0.3
+end
+
+local function RepValueText(s)
+    local x = ns.db.xp
+    local parts = {}
+    if x.showLevel then parts[#parts + 1] = Hex(0.75, 0.75, 0.75) .. "L" .. s.level .. "|r" end
+    local r = s.rep
+    if not r then
+        parts[#parts + 1] = Hex(0.5, 0.5, 0.5) .. "no faction|r"
+    else
+        local cr, cg, cb = RepColour(r.standing)
+        local text = StandingLabel(r.standing)
+        if (r.max or 0) > 0 then text = text .. (" %d%%"):format(math.floor(r.cur / r.max * 100)) end
+        parts[#parts + 1] = Hex(cr, cg, cb) .. text .. "|r"
+    end
     return table.concat(parts, "  ")
 end
 
@@ -394,6 +438,20 @@ local function Update()
     if #list == 0 then f:Hide() return end
 
     local h = math.max(x.barHeight, x.size + 4)
+    -- first pass: inventory texts and the widest one (all bars start at the same x)
+    local invText, invW = {}, 0
+    for i, key in ipairs(list) do
+        local s = ns.status[key] or ns.UpdateOwnStatus()
+        local row = Row(i)
+        invText[i] = table.concat(InventoryText(s), "  ")
+        ns.ApplyFont(row.inv, x.font, x.size, x.outline)
+        row.inv:SetText(invText[i])
+        if invText[i] ~= "" then invW = math.max(invW, row.inv:GetStringWidth() or 0) end
+    end
+    local barLeft = invW > 0 and math.floor(invW + 10) or 0
+    local barWidth = math.max(20, x.width - barLeft)
+    local rep = x.barMode == "REP"
+
     for i, key in ipairs(list) do
         local s = ns.status[key] or ns.UpdateOwnStatus()
         local row = Row(i)
@@ -415,17 +473,29 @@ local function Update()
         local useClass = x.classColors and cr
         local r, g, b = useClass and cr or A[1], useClass and cg or A[2], useClass and cb or A[3]
 
-        local pct = (s.isMax or s.max <= 0) and 0 or math.min(1, s.cur / s.max)
-        local restPct = (s.isMax or s.max <= 0) and 0 or math.min(1 - pct, s.rested / s.max)
-        row.fill:SetColorTexture(r * 0.6, g * 0.6, b * 0.6, 0.85)
+        row.inv:SetShown(invText[i] ~= "")
+        row.bar:SetPoint("LEFT", barLeft, 0)
+
+        local pct, restPct
+        if rep then
+            local rp = s.rep
+            pct = (rp and (rp.max or 0) > 0) and math.min(1, math.max(0, rp.cur / rp.max)) or (rp and 1 or 0)
+            restPct = 0
+            local rr, rg, rb = RepColour(rp and rp.standing or 4)
+            row.fill:SetColorTexture(rr * 0.7, rg * 0.7, rb * 0.7, 0.85)
+        else
+            pct = (s.isMax or s.max <= 0) and 0 or math.min(1, s.cur / s.max)
+            restPct = (s.isMax or s.max <= 0) and 0 or math.min(1 - pct, s.rested / s.max)
+            row.fill:SetColorTexture(r * 0.6, g * 0.6, b * 0.6, 0.85)
+        end
         row.fill:SetShown(x.showBars and pct > 0)
-        row.fill:SetWidth(math.max(1, x.width * pct))
-        row.rest:SetShown(x.showBars and x.showRested and restPct > 0)
-        row.rest:SetWidth(math.max(1, x.width * restPct))
+        row.fill:SetWidth(math.max(1, barWidth * pct))
+        row.rest:SetShown(x.showBars and not rep and x.showRested and restPct > 0)
+        row.rest:SetWidth(math.max(1, barWidth * restPct))
         row.track:SetShown(x.showBars)
 
         local name = ns.Display(key)
-        local values = ValueText(key, s)
+        local values = rep and RepValueText(s) or ValueText(key, s)
 
         -- Layer Hop tag
         local hop = x.layerHopNotify and ns.HopPendingFor(key)
