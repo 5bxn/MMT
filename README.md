@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.8.8: core addon (MMT) plus optional modules (MMT_*).
+Version 0.8.9: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -56,6 +56,7 @@ Saved data from MMT 0.1.x is converted automatically.
   the FTL leader.
   "Click-through" turns the mouse off for it. During a layer hop countdown every
   client's XP window shows "Layer Hop 5, 4, ...".
+- **Alerts** (settings page):
   "Follow": every client reports when its character starts or stops following (/follow).
   A member who stops gets a red row that pulses for 10 seconds, then "(no follow)" in red
   after the name until they follow again; the client of the character that was
@@ -64,6 +65,14 @@ Saved data from MMT 0.1.x is converted automatically.
   (then it only counts if the character still isn't following some seconds after its
   combat; default 5, adjustable).
   Flight paths don't count as a break.
+  "Crowd control": every client reports when its character can't move: stunned, feared or
+  charmed, incapacitated (polymorph, sap, sleep) or rooted (each can be switched off;
+  effects shorter than 2 seconds are ignored, adjustable). The row turns orange and
+  pulses, with "(stunned 4)" counting down after the name and the spell in the tooltip.
+  The raid warning "<Name> is stunned (4 s)" and its sound come from the FTL leader's
+  client (the character you play); with no leader known, from every client.
+  Follow, crowd control and layer hop messages go to the FTL leader first (whispered,
+  highest priority) and then to the rest of the team.
 - **FTL** (Focusless, Targetless, Leaderless): macros that always target the character
   you are controlling right now, like `/follow {FTL}` or `/assist {FTL}`. Write them on
   the FTL page; MMT turns them into account macros ("FTL Follow" and "FTL Assist" by
@@ -176,7 +185,9 @@ Team abandon is QTAB:<questID>.
   to the leader if known and online, otherwise sent to the team with the tag). Scope
   `"FOLLOWERS"` as 5th argument of `SendToTeam` (4th of `SendLong`) reaches everybody but
   the leader. Each receiving client checks against the leader it knows and drops what
-  isn't meant for it; modules get the scope as 4th argument of `TEAM_MESSAGE`. Clients
+  isn't meant for it; modules get the scope as 4th argument of `TEAM_MESSAGE`.
+  `MMT.SendAlert(msg)` sends to the leader first and then to everybody else (leader tag,
+  highest priority); MMT uses it for follow, crowd control and layer hop. Clients
   older than 0.8.8 don't know the tag and would pass such messages on to every module.
 - All clients need MMT 0.8.4 or later for large transfers (older versions don't listen
   on "MMTB").

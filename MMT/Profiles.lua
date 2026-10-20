@@ -65,6 +65,18 @@ ns.defaults = {
         },
     },
 
+    -- crowd control check (CC.lua)
+    cc = {
+        enabled     = true,   -- report when a team character can't move
+        warn        = true,   -- raid warning "<Name> is stunned" (on the FTL leader's client)
+        sound       = true,   -- raid warning sound
+        stun        = true,   -- stuns
+        fear        = true,   -- fears, charms, mind control
+        incap       = true,   -- incapacitates: polymorph, sap, sleep ...
+        root        = true,   -- roots
+        minDuration = 2,      -- ignore effects shorter than this many seconds
+    },
+
     -- team communication
     comm = {
         guild = false,   -- send team messages on the guild channel (all characters in one guild)

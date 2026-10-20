@@ -423,6 +423,22 @@ function ns.SendToLeader(msg, prio, prefix)
     return true
 end
 
+-- Alerts (follow, crowd control, layer hop): the FTL leader first, then the
+-- rest of the team. Both at ALERT priority: the whisper "@L:" to the leader
+-- leaves the queue first; the team copy carries "@F:", so the leader (who
+-- already has it) ignores it. Without a leader known (or online), or when this
+-- character leads, it is one plain team message.
+function ns.SendAlert(msg, prefix)
+    if not ns.db then return end
+    local leader = ns.FTLLeader and ns.FTLLeader()
+    if leader and not ns.IsSelf(leader) and ns.IsOnline(leader) then
+        Send(Scoped(msg, "LEADER"), "WHISPER", ns.WhisperTarget(leader), "ALERT", nil, prefix)
+        ns.SendToTeam(msg, true, "ALERT", prefix, "FOLLOWERS")
+    else
+        ns.SendToTeam(msg, true, "ALERT", prefix)
+    end
+end
+
 function ns.BroadcastXP(onlyOnline)
     if not ns.db then return end
     ns.SendToTeam(ns.BuildXPMessage(), onlyOnline, "NORMAL")

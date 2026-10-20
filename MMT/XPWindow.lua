@@ -234,6 +234,12 @@ local function RowTooltip(row)
             tip:AddDoubleLine("Follow", t and ("following " .. t) or "following", 1, 1, 1, 0.4, 1, 0.4)
         end
     end
+    local cc = ns.db.cc.enabled and ns.CCState and ns.CCState(key)
+    if cc then
+        local left, spell = ns.CCLeft(cc), ns.CCSpellName(cc)
+        tip:AddDoubleLine("Control", ns.CCLabel(cc.kind) .. (left and (", " .. left .. " s") or "") .. (spell and (" (" .. spell .. ")") or ""),
+            1, 1, 1, 1, 0.6, 0.1)
+    end
     if ns.IsFTLLeader(key) then tip:AddLine("FTL leader: {FTL} macros point to this character.", 1, 0.82, 0) end
     tip:AddLine(" ")
     tip:AddLine("Click: make FTL leader   Right-click: invite", 0.5, 0.5, 0.5)
@@ -277,6 +283,15 @@ local function Row(i)
     local afade = row.alert.pulse:CreateAnimation("Alpha")
     afade:SetFromAlpha(1); afade:SetToAlpha(0.3); afade:SetDuration(0.8)
     row.alert:Hide()
+    -- orange, pulsing mark: this member can't move (stun, fear, root ...)
+    row.ccMark = row.alertLayer:CreateTexture(nil, "OVERLAY")
+    row.ccMark:SetAllPoints()
+    row.ccMark:SetColorTexture(1, 0.55, 0.05, 0.35)
+    row.ccMark.pulse = row.ccMark:CreateAnimationGroup()
+    row.ccMark.pulse:SetLooping("BOUNCE")
+    local cfade = row.ccMark.pulse:CreateAnimation("Alpha")
+    cfade:SetFromAlpha(1); cfade:SetToAlpha(0.3); cfade:SetDuration(0.4)
+    row.ccMark:Hide()
     row.value = row.bar:CreateFontString(nil, "OVERLAY")
     row.value:SetPoint("RIGHT", -4, 0)
     row.value:SetJustifyH("RIGHT")
@@ -463,13 +478,22 @@ local function Update()
         row:SetPoint("TOPLEFT", PAD, -(PAD + (i - 1) * (h + Gap())))
         row:SetSize(x.width, h)
         local broken = x.followCheck and ns.FollowBroken and ns.FollowBroken(key)
-        local pulsing = broken and ns.FollowJustBroke(key)
+        local ccText = ns.db.cc.enabled and ns.CCShort and ns.CCShort(key)
+        local pulsing = broken and ns.FollowJustBroke(key) and not ccText
         row.alert:SetShown(pulsing and true or false)
         if pulsing then
             if not row.alert.pulse:IsPlaying() then row.alert.pulse:Play() end
         else
             row.alert.pulse:Stop()
         end
+        row.ccMark:SetShown(ccText and true or false)
+        if ccText then
+            if not row.ccMark.pulse:IsPlaying() then row.ccMark.pulse:Play() end
+        else
+            row.ccMark.pulse:Stop()
+        end
+        -- after the name: "(no follow)", "(stunned 4)"
+        local suffix = (broken and " |cffff4040(no follow)|r" or "") .. (ccText and (" |cffffa020(" .. ccText .. ")|r") or "")
 
         local cr, cg, cb = ClassColor(s.class)
         local useClass = x.classColors and cr
@@ -523,7 +547,7 @@ local function Update()
         if x.align == "SPLIT" then
             ns.ApplyFont(row.name, x.font, x.size, x.outline)
             ns.ApplyFont(row.value, x.font, x.size, x.outline)
-            row.name:SetText(broken and (name .. " |cffff4040(no follow)|r") or name)
+            row.name:SetText(name .. suffix)
             row.name:SetTextColor(nr, ng, nb)
             row.value:SetText(values)
             row.value:SetTextColor(1, 1, 1)
@@ -531,7 +555,7 @@ local function Update()
         else
             ns.ApplyFont(row.line, x.font, x.size, x.outline)
             row.line:SetJustifyH(x.align)
-            row.line:SetText(Hex(nr, ng, nb) .. name .. "|r" .. (broken and " |cffff4040(no follow)|r" or "") .. "  " .. values)
+            row.line:SetText(Hex(nr, ng, nb) .. name .. "|r" .. suffix .. "  " .. values)
             row.line:SetTextColor(1, 1, 1)
             row.line:Show(); row.name:Hide(); row.value:Hide()
         end

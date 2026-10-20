@@ -430,7 +430,7 @@ ns.RegisterPage("xp", "XP Window", function(page)
     local glk, slk = Opt("xp", "locked")
     L:Check("Lock position", glk, slk, "Unlocked, Shift + drag moves the window.")
     local gct, sct = Opt("xp", "clickThrough")
-    L:Check("Click-through", gct, sct, "Clicks go through the window to the game world. No mouseover details or click actions then. Otherwise: click a member to invite, right-click to inspect, Ctrl-click for talents, Ctrl-right-click to remove from the group, Shift-right-click for settings.")
+    L:Check("Click-through", gct, sct, "Clicks go through the window to the game world. No mouseover details or click actions then. Otherwise: click a member to make them the FTL leader, right-click to invite, Ctrl-click to inspect, Ctrl-right-click for talents, middle-click to invite the whole team, Shift-right-click for settings.")
     L:Check("Show your own character", Opt("xp", "showSelf"))
     L:Check("Show level", Opt("xp", "showLevel"))
     local gr, sr = Opt("xp", "showRested")
@@ -509,21 +509,53 @@ ns.RegisterPage("xp", "XP Window", function(page)
     R:Slider("Background opacity", 0, 1, 0.05, gb, sb, "%.2f")
     R:Button("Reset window position", function() ns.ResetXPPosition() end)
 
-    R:Header("Follow")
+    R:Space(6)
+    R:Note("Follow and crowd control warnings: Alerts page.")
+
+end)
+
+---------------------------------------------------------------------------
+-- Alerts: follow and crowd control
+---------------------------------------------------------------------------
+ns.RegisterPage("alerts", "Alerts", function(page)
+    local L = UI.Column(page, 0, 0, COL_W)
+    L:Header("Follow")
+    L:Note("Warns when a team character stops following.")
     local gfc, sfc = Opt("xp", "followCheck")
-    R:Check("Check /follow of team", gfc, sfc,
-        "Every client reports when its character starts or stops following. A member who stops gets a red, pulsing row here. Needs MMT on every client.")
+    L:Check("Check /follow of team", gfc, sfc,
+        "Every client reports when its character starts or stops following. A member who stops gets a red, pulsing row in the XP window. Needs MMT on every client.")
     local gfw, sfw = Opt("xp", "followWarn")
-    R:Check("Show warning when follow breaks", gfw, sfw,
+    L:Check("Show warning when follow breaks", gfw, sfw,
         "Raid warning \"<Name> stopped following\" on the client of the character that was followed (the one you play).")
     local gfs, sfs = Opt("xp", "followSound")
-    R:Check("Play sound when follow breaks", gfs, sfs, "The raid warning sound, on the same client as the warning.")
+    L:Check("Play sound when follow breaks", gfs, sfs, "The raid warning sound, on the same client as the warning.")
     local gfi, sfi = Opt("xp", "followIgnoreCombat")
-    R:Check("Ignore follow breaks during combat", gfi, sfi,
+    L:Check("Ignore follow breaks during combat", gfi, sfi,
         "Follow often breaks in a fight. A break in combat only counts if the character still isn't following when the time below has passed after its combat ended.")
     local gfd, sfd = Opt("xp", "followCombatDelay")
-    R:Slider("Check after combat (seconds)", 1, 30, 1, gfd, sfd)
+    L:Slider("Check after combat (seconds)", 1, 30, 1, gfd, sfd)
 
+    local R = UI.Column(page, COL2_X, 0, COL_W)
+    R:Header("Crowd control")
+    R:Note("Warns when a team character can't move: stunned, feared, incapacitated or rooted. The XP window marks the row orange with the time left.")
+    local ge, se = Opt("cc", "enabled")
+    R:Check("Check crowd control of team", ge, se,
+        "Every client reports when its character loses control and when it is free again. Needs MMT on every client.")
+    local gw, sw = Opt("cc", "warn")
+    R:Check("Show warning", gw, sw,
+        "Raid warning \"<Name> is stunned (4 s)\" on the FTL leader's client (the character you play). With no leader known, on every client. Never for the character itself.")
+    local gs, ss = Opt("cc", "sound")
+    R:Check("Play sound", gs, ss, "The raid warning sound, on the same client as the warning.")
+    R:Space(4)
+    R:Note("Report:")
+    R:Check("Stuns", Opt("cc", "stun"))
+    local gf, sf = Opt("cc", "fear")
+    R:Check("Fears and charms", gf, sf, "Fear, horror, charm, mind control.")
+    local gi, si = Opt("cc", "incap")
+    R:Check("Incapacitates", gi, si, "Polymorph, sap, sleep, gouge and similar.")
+    R:Check("Roots", Opt("cc", "root"))
+    local gm, sm = Opt("cc", "minDuration")
+    R:Slider("Ignore shorter than (seconds)", 0, 10, 1, gm, sm)
 end)
 
 ---------------------------------------------------------------------------
