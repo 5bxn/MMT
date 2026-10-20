@@ -181,6 +181,16 @@ function ns.HandleDebugCommand(arg)
         MMTDB.debugChat = not MMTDB.debugChat
         ns.Print("Printing debug lines to chat: %s", State(MMTDB.debugChat))
         ns.RefreshConfig()
+    elseif sub == "talents" then
+        -- what the game offers for viewing talents (for fixing Ctrl-click in the XP window)
+        local lines = { "MMT " .. ns.version .. " talent view candidates (global names with Talent / Inspect / UnitPopup...Talent)" }
+        for _, l in ipairs(ns.ListTalentGlobals and ns.ListTalentGlobals() or {}) do lines[#lines + 1] = l end
+        lines[#lines + 1] = ""
+        lines[#lines + 1] = "-- log lines about the talent view:"
+        for _, l in ipairs(MMTDB.debuglog or {}) do
+            if l:find("talent view", 1, true) or l:find("InspectUnit", 1, true) then lines[#lines + 1] = l end
+        end
+        ns.ShowText("MMT talent view report", table.concat(lines, "\n"))
     elseif sub == "name" then
         if rest == "" then ns.Print("Usage: /mmt debug name First Last") return end
         local bare = ns.StripRealm(rest)
@@ -193,6 +203,7 @@ function ns.HandleDebugCommand(arg)
         ns.Print("/mmt debug dump - copyable report (identity, group, layer, team, trade, log)")
         ns.Print("/mmt debug log | clear | chat - show log, clear it, print lines live to chat")
         ns.Print("/mmt debug name <text> - test how a typed name is understood")
+        ns.Print("/mmt debug talents - what the game offers to view talents (for the XP window's Ctrl-click)")
         ns.Print("/mmt ping - whisper all team members (3 name spellings) and show which one answers")
     end
 end

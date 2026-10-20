@@ -3,7 +3,8 @@
 
 local _, ns = ...
 
-local PAD, GAP = 3, 2
+local PAD = 3
+local function Gap() return ns.db.xp.rowGap or 3 end
 local A = { 0.31, 0.70, 1.00 }
 
 local f = CreateFrame("Frame", "MMTXPFrame", UIParent)
@@ -83,6 +84,81 @@ local function NotInCombat()
     return true
 end
 
+-- Forever's unit menu has "View Talents" (below "Inspect"), which opens the
+-- talents in their own window. The menu entry is a UnitPopup button mixin;
+-- MMT finds it by name and calls its OnClick the way the menu does. Fallback:
+-- inspect, then the inspect window's Talents button / tab.
+local talentMixin
+
+local function FindTalentMixin()
+    if talentMixin then return talentMixin end   -- only a find is kept (the menu code may load later)
+    local names = {}
+    for name, v in pairs(_G) do
+        if type(name) == "string" and type(v) == "table" and name:find("^UnitPopup") and name:find("Talent")
+            and type(rawget(v, "OnClick")) == "function" then
+            names[#names + 1] = name
+        end
+    end
+    table.sort(names)
+    -- prefer "View..." / "Inspect..." over others
+    for _, name in ipairs(names) do
+        if name:find("View") or name:find("Inspect") then talentMixin = _G[name] break end
+    end
+    talentMixin = talentMixin or (names[1] and _G[names[1]])
+    ns.Debug("talent view: menu entries %s -> %s", table.concat(names, ", "), tostring(#names > 0))
+    return talentMixin
+end
+
+-- debug: every global name about talents / inspect (/mmt debug talents)
+function ns.ListTalentGlobals()
+    local out = {}
+    for name, v in pairs(_G) do
+        if type(name) == "string" and #out < 300 and (name:find("Talent") or name:find("Inspect")
+            or (name:find("^UnitPopup") and name:find("Mixin$"))) then
+            out[#out + 1] = name .. " (" .. type(v) .. ")"
+        end
+    end
+    table.sort(out)
+    return out
+end
+
+local function ClickTalentsButton(frame, depth)
+    if not frame or depth > 4 or not frame.GetChildren then return false end
+    for _, child in ipairs({ frame:GetChildren() }) do
+        if child.IsShown and child:IsShown() and child.GetText and child.Click then
+            local text = child:GetText()
+            if type(text) == "string" and not ns.IsSecret(text)
+                and (text == (TALENTS or "Talents") or text:lower():find("talent", 1, true)) then
+                pcall(child.Click, child)
+                ns.Debug("talent view: clicked %s (%s)", child:GetName() or "button", text)
+                return true
+            end
+        end
+        if ClickTalentsButton(child, depth + 1) then return true end
+    end
+    return false
+end
+
+local function ViewTalents(unit, key)
+    local mixin = FindTalentMixin()
+    if mixin then
+        local ctx = { unit = unit, name = GetUnitName(unit, true), guid = UnitGUID(unit) }
+        local ok, err = pcall(mixin.OnClick, mixin, ctx)
+        ns.Debug("talent view: menu entry OnClick(%s) -> %s %s", unit, tostring(ok), tostring(err or ""))
+        if ok then return end
+    end
+    -- fallback: inspect window, then its Talents button / tab
+    local ok, err = pcall(InspectUnit, unit)
+    ns.Debug("InspectUnit(%s) -> %s %s", unit, tostring(ok), tostring(err or ""))
+    if not ok then return end
+    C_Timer.After(0.6, function()
+        if ClickTalentsButton(InspectFrame, 0) then return end
+        if InspectFrameTab3 and InspectFrameTab3:IsShown() then pcall(InspectFrameTab3.Click, InspectFrameTab3) return end
+        ns.Debug("talent view: no Talents button found; /mmt debug talents lists candidates")
+        ns.Print("Couldn't open the talents of %s. Please run /mmt debug talents and send me the report.", ns.FullDisplay(key))
+    end)
+end
+
 local function Inspect(key, talents)
     if not NotInCombat() then return end
     if ns.IsSelf(key) then
@@ -98,18 +174,9 @@ local function Inspect(key, talents)
     if not unit then ns.Print("%s must be in your group to be inspected.", ns.FullDisplay(key)) return end
     if CanInspect and not CanInspect(unit) then ns.Print("%s is too far away to inspect.", ns.FullDisplay(key)) return end
     if not InspectUnit then return end
+    if talents then ViewTalents(unit, key) return end
     local ok, err = pcall(InspectUnit, unit)
     ns.Debug("InspectUnit(%s) -> %s %s", unit, tostring(ok), tostring(err or ""))
-    if ok and talents then
-        -- switch the inspect window to its talent page once the data is there
-        C_Timer.After(0.6, function()
-            if InspectFrameTab3 and InspectFrameTab3:IsShown() then
-                pcall(InspectFrameTab3.Click, InspectFrameTab3)          -- Classic layout: tab 3 = Talents
-            elseif InspectPaperDollFrame and InspectPaperDollFrame.ViewButton then
-                pcall(InspectPaperDollFrame.ViewButton.Click, InspectPaperDollFrame.ViewButton)
-            end
-        end)
-    end
 end
 
 local function RowClick(row, button)
@@ -333,11 +400,12 @@ local function Update()
         row.key, row.status = key, s
         row:EnableMouse(not x.clickThrough)
         row:ClearAllPoints()
-        row:SetPoint("TOPLEFT", PAD, -(PAD + (i - 1) * (h + GAP)))
+        row:SetPoint("TOPLEFT", PAD, -(PAD + (i - 1) * (h + Gap())))
         row:SetSize(x.width, h)
         local broken = x.followCheck and ns.FollowBroken and ns.FollowBroken(key)
-        row.alert:SetShown(broken and true or false)
-        if broken then
+        local pulsing = broken and ns.FollowJustBroke(key)
+        row.alert:SetShown(pulsing and true or false)
+        if pulsing then
             if not row.alert.pulse:IsPlaying() then row.alert.pulse:Play() end
         else
             row.alert.pulse:Stop()
@@ -380,7 +448,7 @@ local function Update()
         if x.align == "SPLIT" then
             ns.ApplyFont(row.name, x.font, x.size, x.outline)
             ns.ApplyFont(row.value, x.font, x.size, x.outline)
-            row.name:SetText(name)
+            row.name:SetText(broken and (name .. " |cffff4040(no follow)|r") or name)
             row.name:SetTextColor(nr, ng, nb)
             row.value:SetText(values)
             row.value:SetTextColor(1, 1, 1)
@@ -388,7 +456,7 @@ local function Update()
         else
             ns.ApplyFont(row.line, x.font, x.size, x.outline)
             row.line:SetJustifyH(x.align)
-            row.line:SetText(Hex(nr, ng, nb) .. name .. "|r  " .. values)
+            row.line:SetText(Hex(nr, ng, nb) .. name .. "|r" .. (broken and " |cffff4040(no follow)|r" or "") .. "  " .. values)
             row.line:SetTextColor(1, 1, 1)
             row.line:Show(); row.name:Hide(); row.value:Hide()
         end
@@ -398,7 +466,7 @@ local function Update()
 
     f:SetScale(x.scale)
     f:SetAlpha(x.alpha)
-    f:SetSize(x.width + PAD * 2, #list * (h + GAP) - GAP + PAD * 2)
+    f:SetSize(x.width + PAD * 2, #list * (h + Gap()) - Gap() + PAD * 2)
     f.bg:SetColorTexture(0, 0, 0, x.bgAlpha)
     f:Show()
 end

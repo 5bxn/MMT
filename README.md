@@ -1,7 +1,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.8.1: core addon (MMT) plus optional modules (MMT_*).
+Version 0.8.2: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -49,7 +49,8 @@ Saved data from MMT 0.1.x is converted automatically.
   "Click-through" turns the mouse off for it. During a layer hop countdown every
   client's XP window shows "Layer Hop 5, 4, ...".
   "Follow": every client reports when its character starts or stops following (/follow).
-  A member who stops gets a red, pulsing row; the client of the character that was
+  A member who stops gets a red row that pulses for 10 seconds, then "(no follow)" in red
+  after the name until they follow again; the client of the character that was
   followed shows the raid warning "<Name> stopped following" and plays the raid warning
   sound. Options: check /follow of team, warning, sound, ignore breaks during combat
   (then it only counts if the character still isn't following some seconds after its
@@ -148,6 +149,7 @@ with `/mmt sync` (accept the popup on the others).
    log). *Select all*, Ctrl+C, paste it to Claude.
 - `/mmt ping` whispers every team member with three spellings of the name.
 - `/mmt debug name First Last` shows how a typed name is understood.
+- `/mmt debug talents` lists what the game offers to view talents (XP window Ctrl-click).
 - `/mmt debug chat` prints the log lines live into chat.
 
 ## License

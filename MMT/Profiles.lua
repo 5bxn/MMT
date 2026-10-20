@@ -43,6 +43,7 @@ ns.defaults = {
         align       = "SPLIT",   -- SPLIT (name left, values right) | LEFT | CENTER | RIGHT
         width       = 300,
         barHeight   = 18,
+        rowGap      = 3,         -- pixels between the rows
         bgAlpha     = 0.35,
         alpha       = 1,
         scale       = 1,

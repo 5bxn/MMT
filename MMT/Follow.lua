@@ -24,9 +24,17 @@ local function F(key)
     return ns.follow[key]
 end
 
+ns.FOLLOW_PULSE_TIME = 10   -- seconds the XP window row pulses after a break
+
 function ns.FollowBroken(key)
     local f = ns.follow[key]
     return f and f.broken or false
+end
+
+-- true during the first seconds after the break (row pulses)
+function ns.FollowJustBroke(key)
+    local f = ns.follow[key]
+    return f and f.broken and f.brokenAt and (GetTime() - f.brokenAt) < ns.FOLLOW_PULSE_TIME or false
 end
 
 function ns.FollowInfo(key) return ns.follow[key] end
@@ -78,6 +86,9 @@ local function Stopped(key, why)
     end
     f.combatBreak = false
     f.broken = true
+    f.brokenAt = GetTime()
+    -- the row pulses for PULSE_TIME, then shows "(no follow)": redraw then
+    C_Timer.After(ns.FOLLOW_PULSE_TIME + 0.1, function() ns.Fire("STATUS_CHANGED") end)
     local warnHere = (not f.targetKey) or ns.IsSelf(f.targetKey)
     if warnHere then Warn(key) end
     ns.Fire("STATUS_CHANGED")
