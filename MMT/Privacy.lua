@@ -79,13 +79,24 @@ local function CachedRules(forDebug)
     end
     return cache[k]
 end
+local Reapply   -- below
+-- the setting, the team or a class changed: new rules, and everything shown again
 function ns.PrivacyChanged()
     cache = {}
     if ns.RefreshNameFrames then ns.RefreshNameFrames() end
+    if Reapply then Reapply() end
 end
-ns.Listen("TEAM_CHANGED", function() cache = {} end)
-ns.Listen("PROFILE_CHANGED", function() cache = {} end)
-ns.Listen("XP_RECEIVED", function() cache = {} end)   -- a class learned later changes "Druid 1" names
+ns.Listen("TEAM_CHANGED", function() ns.PrivacyChanged() end)
+ns.Listen("PROFILE_CHANGED", function() ns.PrivacyChanged() end)
+-- a class learned later turns "Slot 4" into "Druid 3"
+local knownClass = {}
+ns.Listen("XP_RECEIVED", function(key, sender, st)
+    local class = st and st.class
+    if class and class ~= "" and knownClass[key] ~= class then
+        knownClass[key] = class
+        ns.PrivacyChanged()
+    end
+end)
 
 local function ReplacePlain(text, rules)
     if text == "" then return text end
@@ -132,6 +143,16 @@ end
 -- Chat: every chat window shows the replaced text
 ---------------------------------------------------------------------------
 local wrapped = {}
+-- replaced chat line -> original line (the last 500), so a changed setting can redo them
+local chatOriginal, chatOrder = {}, {}
+local function RememberChat(shown, orig)
+    if chatOriginal[shown] == nil then
+        chatOrder[#chatOrder + 1] = shown
+        if #chatOrder > 500 then chatOriginal[table.remove(chatOrder, 1)] = nil end
+    end
+    chatOriginal[shown] = orig
+end
+
 local function WrapChatFrame(frame)
     if not frame or wrapped[frame] or type(frame.AddMessage) ~= "function" then return end
     wrapped[frame] = true
@@ -139,9 +160,33 @@ local function WrapChatFrame(frame)
     frame.AddMessage = function(self, text, ...)
         if Active() and type(text) == "string" and not ns.IsSecret(text) then
             local ok, replaced = pcall(ns.ReplaceNames, text)
-            if ok then text = replaced end
+            if ok and replaced ~= text then
+                RememberChat(replaced, text)
+                text = replaced
+            end
         end
         return original(self, text, ...)
+    end
+end
+
+-- lines already in the chat windows: shown again with the current setting
+-- (original names back when the option is off); needs TransformMessages
+local function ReapplyChat()
+    for frame in pairs(wrapped) do
+        if frame.TransformMessages then
+            pcall(frame.TransformMessages, frame,
+                function(entry)
+                    return type(entry) == "table" and type(entry.message) == "string" and not ns.IsSecret(entry.message)
+                end,
+                function(entry)
+                    local orig = chatOriginal[entry.message] or entry.message
+                    local new = Active() and ns.ReplaceNames(orig) or orig
+                    if new ~= entry.message then
+                        entry.message = new
+                        if new ~= orig then RememberChat(new, orig) end
+                    end
+                end)
+        end
     end
 end
 
@@ -163,14 +208,11 @@ local function NameText(frame)
     if fs and fs.GetText and fs.SetText then return fs end
 end
 
+local AfterSetText   -- below: replaces and remembers the original text
 local function FixFrame(frame)
     if not Active() then return end
     local fs = NameText(frame)
-    if not fs then return end
-    local text = fs:GetText()
-    if type(text) ~= "string" or ns.IsSecret(text) then return end
-    local new = ns.ReplaceNames(text)
-    if new ~= text then fs:SetText(new) end
+    if fs then AfterSetText(fs, nil) end
 end
 
 local FRAMES = { "PlayerFrame", "TargetFrame", "FocusFrame", "TargetFrameToT", "FocusFrameToT",
@@ -207,16 +249,42 @@ end
 -- is checked. Cheap when no team name is in it (a few plain searches).
 ---------------------------------------------------------------------------
 local busy = false
-local function AfterSetText(fs, text)
+-- texts MMT replaced: [fontString] = { orig = text before, shown = text now }
+local tracked = setmetatable({}, { __mode = "k" })
+
+local function SetQuietly(fs, text)
+    busy = true
+    pcall(fs.SetText, fs, text)
+    busy = false
+end
+
+AfterSetText = function(fs, text)
     if busy or not Active() then return end
     if text == nil then text = fs:GetText() end
     if type(text) ~= "string" or ns.IsSecret(text) then return end
     local new = ns.ReplaceNames(text)
     if new ~= text then
-        busy = true
-        pcall(fs.SetText, fs, new)
-        busy = false
+        tracked[fs] = { orig = text, shown = new }
+        SetQuietly(fs, new)
+    elseif tracked[fs] and tracked[fs].shown ~= text then
+        tracked[fs] = nil   -- new text without names
     end
+end
+
+-- everything MMT replaced: again with the current setting, or back to the
+-- original when the option is off; chat history too
+Reapply = function()
+    for fs, t in pairs(tracked) do
+        local ok, current = pcall(fs.GetText, fs)
+        if ok and current == t.shown then
+            local new = Active() and ns.ReplaceNames(t.orig) or t.orig
+            if new ~= current then SetQuietly(fs, new) end
+            t.shown = new   -- kept when restored, so switching on again redoes it
+        else
+            tracked[fs] = nil   -- the frame shows something else by now
+        end
+    end
+    ReapplyChat()
 end
 
 do

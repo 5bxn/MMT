@@ -4,7 +4,7 @@
 local ADDON, ns = ...
 _G.MMT = ns
 ns.title = "MMT"
-ns.version = "0.9.2"
+ns.version = "0.9.3"
 ns.prefix = "MMT"
 ns.LOGO = "Interface\\AddOns\\MMT\\Media\\Logo"   -- the MMT mark (Media/Logo.tga)
 ns.ICON = "Interface\\AddOns\\MMT\\Media\\Icon"   -- the mark on a dark tile (Media/Icon.tga)
@@ -218,20 +218,23 @@ function ns.RealFirst(key)
     return key:match("^([^%-%s]+)") or key
 end
 
+-- the last name: stored with the member, else from the team key
+-- ("First-Last") or from the name the character last sent with
+local function LastOf(text)
+    if not text or text == "" or ns.IsSecret(text) then return nil end
+    return ns.StripRealm(text):match("^[^%-%s]+[%-%s]+(.+)$")
+end
 function ns.RealLast(key)
     local m = Member(key)
-    if m and m.name then return m.last end
-    key = ns.StripRealm(key or "")
-    return key:match("^[^%-%s]+[%-%s]+(.+)$")
+    if m and m.last and m.last ~= "" then return m.last end
+    local s = ns.status and ns.status[key]
+    return LastOf(key) or LastOf(s and s.sender)
 end
 
 -- "First Last"
 function ns.RealName(key)
-    local m = Member(key)
-    if m and m.name then
-        return m.last and (m.name .. " " .. m.last) or m.name
-    end
-    return (ns.StripRealm(key or "?"):gsub("-", " "))
+    local first, last = ns.RealFirst(key), ns.RealLast(key)
+    return last and (first .. " " .. last) or first
 end
 
 ---------------------------------------------------------------------------
