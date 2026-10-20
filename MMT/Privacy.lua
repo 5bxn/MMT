@@ -65,6 +65,26 @@ local function Rules(forDebug)
         r.pattern = "%f[" .. LETTER .. "]" .. Caseless(Esc(r.text)) .. "%f[^" .. LETTER .. "]"
         r.repl = r.alias:gsub("%%", "%%%%")
     end
+    -- first name + space/hyphen + the start of the last name: other addons
+    -- shorten names to fit ("Gunter Mcquidin", "Gunter Mcq", "Gunter M.").
+    -- These go first, before the single names.
+    local shortened = {}
+    for key in pairs(team) do
+        local first, last = ns.RealFirst(key), ns.RealLast(key)
+        if first and last and first ~= "" and last ~= "" then
+            local alias = (forDebug and mode == "FULL") and ns.NameFor(key, "SLOT") or ns.ShownName(key)
+            local lastLower = last:lower()
+            shortened[#shortened + 1] = {
+                text = first .. " " .. last, alias = alias, first = #first,
+                pattern = "%f[" .. LETTER .. "]" .. Caseless(Esc(first)) .. "[%s%-]+([" .. LETTER .. "]+)%f[^" .. LETTER .. "]",
+                repl = function(part)
+                    if lastLower:sub(1, #part) == part:lower() then return alias end
+                end,
+            }
+        end
+    end
+    table.sort(shortened, function(a, b) return a.first > b.first end)
+    for i = #shortened, 1, -1 do table.insert(rules, 1, shortened[i]) end
     return rules
 end
 
