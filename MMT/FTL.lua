@@ -57,12 +57,13 @@ function ns.FTLName()
     local key = ns.FTLLeader()
     if not key then return nil end
     local fmt = ns.db.ftl.nameFormat
-    if fmt == "FIRST" then return ns.FirstName(key) end
+    -- real names: the game must find the character (privacy settings don't apply)
+    if fmt == "FIRST" then return ns.RealFirst(key) end
     if fmt == "UNIT" then
         if ns.IsSelf(key) then return "player" end
-        return (ns.UnitForMember and ns.UnitForMember(key)) or ns.FullDisplay(key)
+        return (ns.UnitForMember and ns.UnitForMember(key)) or ns.RealName(key)
     end
-    return ns.FullDisplay(key)
+    return ns.RealName(key)
 end
 
 -- template -> macro text for this client; second value: true if cut at 255 characters

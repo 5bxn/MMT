@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.8.14: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.0: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -37,6 +37,16 @@ Saved data from MMT 0.1.x is converted automatically.
 
 ## Settings (/mmt)
 - **Team**: Add group / Add me / Add target, or type "First Last". Reorder with Up/Dn.
+  **Privacy**: "Show characters by" first name (default), last name, full name, class
+  ("Druid 1", "Druid 2" in team order) or slot ("Slot 1", "Slot 2"). This applies to
+  everything MMT shows: windows, settings, tooltips, its chat lines and raid warnings.
+  Real names are only used where the game needs them (macros, invites, whispers, team
+  communication). `/mmt leader` also understands the shown name (`/mmt leader Druid 2`).
+  "Keep full names in debug logs" (on by default): off replaces them in the debug log
+  and report. "Hide names outside MMT too" (off by default, not with "Full name"):
+  replaces your team's names in chat (all chat windows; clicking a name still whispers
+  the right character), unit frames, raid frames, nameplates and unit tooltips, where
+  the game allows it. Other addons' windows are only covered where they print to chat.
 - **Roles**: create roles, tick their members, add items (drop one on the slot, or
   click the field and shift-click an item anywhere; IDs and exact names work too),
   rules (all grey, all Bind on Equip, by quality) and item groups (Cloth, Leather,
@@ -149,8 +159,8 @@ Saved data from MMT 0.1.x is converted automatically.
 The settings window has its own scale (- / + at the bottom left, right-click resets,
 or `/mmt scale 130`), kept per account. The XP window's scale is under XP Window > Look.
 
-Windows show first names only; hover a name for the full name and details.
-Chat messages and the debug report use full names.
+Names follow Team > Privacy (first name by default) in windows and chat messages;
+the debug report keeps full names unless "Keep full names in debug logs" is off.
 
 ## Layer and phasing
 - Layer (zoneUID of nearby NPCs) and phasing (`UnitPhaseReason`) are still shown in the

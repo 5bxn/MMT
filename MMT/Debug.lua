@@ -47,6 +47,10 @@ function ns.ShowText(title, text)
         textFrame = f
     end
     textFrame.title:SetText(title)
+    -- "Keep full names in debug logs" off: also older log lines and the report
+    if ns.db and ns.db.privacy and not ns.db.privacy.debugFull and ns.ReplaceNames then
+        text = ns.ReplaceNames(text, true)
+    end
     textFrame.area.edit:SetText(text)
     -- same strata as the settings window: put it well above that window and its widgets
     local config = _G.MMTConfigFrame
@@ -94,7 +98,7 @@ function ns.BuildDebugReport()
     add("GetRealmName           = " .. Repr(GetRealmName()))
     add("GetNormalizedRealmName = " .. Repr(GetNormalizedRealmName and GetNormalizedRealmName()))
     add("PlayerFull (team key)  = " .. Repr(ns.PlayerFull()))
-    add("FullDisplay            = " .. Repr(ns.FullDisplay(ns.PlayerFull())))
+    add("RealName / ShownName   = " .. Repr(ns.RealName(ns.PlayerFull())) .. " / " .. Repr(ns.ShownName(ns.PlayerFull())))
     add("IsSelf(PlayerFull)     = " .. tostring(ns.IsSelf(ns.PlayerFull())))
     local registered = C_ChatInfo and C_ChatInfo.IsAddonMessagePrefixRegistered
         and C_ChatInfo.IsAddonMessagePrefixRegistered(ns.prefix)

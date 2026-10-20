@@ -305,9 +305,9 @@ end
 -- Sending
 ---------------------------------------------------------------------------
 local function UnitInGroupByKey(key)
-    local name = ns.FullDisplay(key)
+    local name = ns.RealName(key)
     return UnitInParty(name) or UnitInRaid(name)
-        or UnitInParty(ns.FirstName(key)) or UnitInRaid(ns.FirstName(key))
+        or UnitInParty(ns.RealFirst(key)) or UnitInRaid(ns.RealFirst(key))
 end
 
 ---------------------------------------------------------------------------
@@ -617,7 +617,7 @@ function ns.OnPong(key, sender, variant)
     if key and pending and pending[key] and variant and pending[key][variant] ~= nil then
         pending[key][variant] = true
     end
-    ns.Print("PONG from %s%s", tostring(sender), key and "" or " (not in this team)")
+    ns.Print("PONG from %s%s", key and ns.ShownName(key) or tostring(sender), key and "" or " (not in this team)")
 end
 
 function ns.Ping()

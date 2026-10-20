@@ -181,28 +181,48 @@ ns.RegisterPage("team", "Team", function(page)
     col:Add(youHover, UI.ROW)
     col:Note("Every account keeps its own team. Add the team on each client, or send it with Profiles > Sync to team (/mmt sync).")
 
-    col:Header("Communication")
+    -- two columns: communication left, privacy right
+    local C = UI.Column(page, 0, col.y, COL_W)
+    C:Header("Communication")
     local gg, sg = Opt("comm", "guild")
-    local guildCheck = UI.Check(page, 250, "Use guild channel", gg, function(v)
+    C:Check("Use guild channel", gg, function(v)
         sg(v)
         if v and ns.ReadGuildRoster then
             ns.ReadGuildRoster()
             if C_GuildInfo and C_GuildInfo.GuildRoster then C_GuildInfo.GuildRoster() end
         end
     end, "One message on the guild channel reaches every team member in your guild, grouped or not, and the guild roster shows who is online. Team members outside the guild still get whispers. Every guild member running MMT receives the messages too (and ignores them). Turn it on on every client.")
-    col:Add(guildCheck, 0)
     local gf, sf = Opt("comm", "fast")
-    local fast = UI.Check(page, 250, "Faster sending (1200 bytes/s)", gf, sf,
+    C:Check("Faster sending (1200 bytes/s)", gf, sf,
         "Large transfers (settings sync, item and quest data) go out at up to 1200 instead of 800 bytes per second. Faster, but very large amounts at once can get a client disconnected.")
-    fast:SetPoint("TOPLEFT", page, "TOPLEFT", 270, col.y)
-    col:Space(UI.ROW)
-    local commInfo = col:Note("")
+    local commInfo = C:Note("")
+
+    local P = UI.Column(page, COL2_X, col.y, COL_W)
+    P:Header("Privacy")
+    local gm, sm = Opt("privacy", "nameMode")
+    P:Cycle("Show characters by", {
+        { value = "FIRST", text = "First name" },
+        { value = "LAST", text = "Last name" },
+        { value = "FULL", text = "Full name" },
+        { value = "CLASS", text = "Class (Druid 1, Druid 2)" },
+        { value = "SLOT", text = "Slot (Slot 1, Slot 2)" },
+    }, gm, function(v) sm(v) ns.Fire("STATUS_CHANGED") if ns.PrivacyChanged then ns.PrivacyChanged() end end)
+    local gd, sd = Opt("privacy", "debugFull")
+    P:Check("Keep full names in debug logs", gd, sd,
+        "Off: names in the debug log and report are replaced by the names shown above (\"Slot 1\" when that is the full name). For reports you post somewhere.")
+    local gh, sh = Opt("privacy", "hideOutside")
+    local hideCheck = P:Check("Hide names outside MMT too", gh, function(v) sh(v) if ns.PrivacyChanged then ns.PrivacyChanged() end end,
+        "Replaces your team's names in chat, unit frames (player, target, focus, party, raid), nameplates and unit tooltips with the names shown above, where the game allows it. Other addons' windows only where they print to chat. Not with \"Full name\".")
+    P:Note("Everything in MMT uses this. Macros, invites and whispers keep the real names.")
 
     page.OnRefresh = function()
         local members = ns.SortedMembers()
         list:Render(members)
         empty:SetShown(#members == 0)
         you:SetText("You are playing " .. ns.FirstName(ns.PlayerFull()) .. ".")
+        local full = ns.db.privacy.nameMode == "FULL"
+        hideCheck:SetAlpha(full and 0.4 or 1)
+        if hideCheck.SetEnabled then hideCheck:SetEnabled(not full) end
         if ns.db.comm.guild then
             if not IsInGuild() then
                 commInfo:SetText("|cffff6666Not in a guild:|r messages go to the group and by whisper as usual.")

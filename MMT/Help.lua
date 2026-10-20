@@ -89,9 +89,12 @@ M.Report = function(self, add)
     add("Example: greeting=" .. tostring(M.db.greeting))
 end
 
--- Names: windows show the first name, MMT.FirstName(key); the full
--- name goes into the mouseover: MMT.HoverMember(frame, function()
--- return key end). Chat messages use the full name, MMT.FullDisplay(key).
+-- Names: show characters with MMT.ShownName(key): it follows the privacy
+-- setting (Team > Privacy: first, last or full name, "Druid 1", "Slot 2").
+-- MMT.FirstName and MMT.FullDisplay do the same. Only for what needs the
+-- real name (macros, invites, unit lookups): MMT.RealName(key),
+-- MMT.RealFirst(key). Mouseover: MMT.HoverMember(frame, function()
+-- return key end).
 
 -- Useful core functions: MMT.Print, M:Debug, MMT.SortedMembers(),
 -- MMT.IsOnline(key), MMT.IsSelf(key), MMT.PlayerFull(),

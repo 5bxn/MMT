@@ -65,6 +65,13 @@ ns.defaults = {
         },
     },
 
+    -- privacy (Privacy.lua): how characters are shown
+    privacy = {
+        nameMode    = "FIRST",   -- FIRST | LAST | FULL | CLASS ("Druid 1") | SLOT ("Slot 1"); everywhere in MMT
+        debugFull   = true,      -- keep full names in debug logs and reports
+        hideOutside = false,     -- also replace names in Blizzard frames, chat and tooltips
+    },
+
     -- crowd control check (CC.lua)
     cc = {
         enabled     = true,   -- report when a team character can't move
