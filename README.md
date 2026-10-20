@@ -1,7 +1,11 @@
+<p align="center">
+  <img src="media/mmt-banner.png" alt="MMT - Manage My Team: multiboxing assistant for World of Warcraft: Forever" width="760">
+</p>
+
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.8.4: core addon (MMT) plus optional modules (MMT_*).
+Version 0.8.5: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -171,6 +175,12 @@ with `/mmt sync` (accept the popup on the others).
 - `/mmt debug name First Last` shows how a typed name is understood.
 - `/mmt debug talents` lists what the game offers to view talents (XP window Ctrl-click).
 - `/mmt debug chat` prints the log lines live into chat.
+
+## Logo
+The MMT logo is in [`media/`](media): profile images (`mmt-logo.png` dark, `mmt-logo-light.png` light,
+512×512), the GitHub social preview (`mmt-banner.png`, 1280×640) and the mark as SVG
+(`mmt-mark.svg`). In the game it shows in the settings window and the AddOns list
+(`MMT/Media`).
 
 ## License
 GNU General Public License v3.0, see [LICENSE](LICENSE).
