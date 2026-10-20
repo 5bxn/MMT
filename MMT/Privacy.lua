@@ -27,6 +27,11 @@ end
 ---------------------------------------------------------------------------
 local LETTER = "%w\128-\255"
 local function Esc(s) return (s:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")) end
+-- upper / lower case don't matter: the game reports "Mcquiding", other
+-- addons may show "McQuiding"
+local function Caseless(pattern)
+    return (pattern:gsub("%a", function(c) return "[" .. c:lower() .. c:upper() .. "]" end))
+end
 
 -- { pattern, replacement } for every spelling of every team name, longest first
 local function Rules(forDebug)
@@ -57,7 +62,7 @@ local function Rules(forDebug)
     end
     table.sort(rules, function(a, b) return #a.text > #b.text end)
     for _, r in ipairs(rules) do
-        r.pattern = "%f[" .. LETTER .. "]" .. Esc(r.text) .. "%f[^" .. LETTER .. "]"
+        r.pattern = "%f[" .. LETTER .. "]" .. Caseless(Esc(r.text)) .. "%f[^" .. LETTER .. "]"
         r.repl = r.alias:gsub("%%", "%%%%")
     end
     return rules
@@ -71,8 +76,8 @@ local function CachedRules(forDebug)
         -- quick test: the names that must appear for any rule to match
         local needles, seen = {}, {}
         for _, r in ipairs(rules) do
-            local word = r.text:match("^[^%s%-<]+") or r.text
-            if not seen[word] then seen[word] = true; needles[#needles + 1] = word end
+            local word = (r.text:match("^[^%s%-<]+") or r.text):lower()
+            if not seen[word] then seen[word] = true; needles[#needles + 1] = Caseless(Esc(word)) end
         end
         rules.needles = needles
         cache[k] = rules
@@ -111,7 +116,7 @@ local ESCAPES = { "^|H.-|h", "^|T.-|t", "^|A.-|a", "^|K.-|k", "^|c%x%x%x%x%x%x%x
 
 local function Contains(text, needles)
     for _, n in ipairs(needles) do
-        if text:find(n, 1, true) then return true end
+        if text:find(n) then return true end
     end
     return false
 end
