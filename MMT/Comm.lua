@@ -15,6 +15,11 @@
 -- each team member (whispers aren't throttled there).
 -- Team messages go to the party/raid (or the guild in guild mode), and by
 -- whisper to team members who aren't reached that way.
+--
+-- Leader tag (FTL): a message can be meant only for the FTL leader ("@L:")
+-- or only for everybody but the leader ("@F:"). Each receiving client checks
+-- against the leader IT knows, drops the message if it isn't meant for it,
+-- and passes it on without the tag. See ns.SendToLeader / scope below.
 
 local _, ns = ...
 
@@ -163,6 +168,15 @@ end
 ---------------------------------------------------------------------------
 local MPT_CHUNK = 220
 
+-- leader tag: scope "LEADER" = only the FTL leader handles the message,
+-- "FOLLOWERS" = everybody but the leader. nil = everybody.
+local SCOPE_TAG = { LEADER = "@L:", FOLLOWERS = "@F:" }
+local SCOPE_NAME = { L = "LEADER", F = "FOLLOWERS" }
+local function Scoped(msg, scope)
+    local tag = scope and SCOPE_TAG[scope]
+    return tag and (tag .. msg) or msg
+end
+
 local function Parts(text)
     local id = tostring(math.random(100000, 999999))
     local n = math.max(1, math.ceil(#text / MPT_CHUNK))
@@ -174,7 +188,8 @@ local function Parts(text)
 end
 
 -- to one character (target = whisper name) or, without target, to the team
-function ns.SendLong(text, target, prio)
+function ns.SendLong(text, target, prio, scope)
+    text = Scoped(text, scope)   -- the tag is in the whole text, checked after it is put together
     for _, part in ipairs(Parts(text)) do
         if target then Send(part, "WHISPER", target, prio or "BULK", nil, ns.bulkPrefix)
         else ns.SendToTeam(part, true, prio or "BULK", ns.bulkPrefix) end
@@ -358,8 +373,9 @@ ns.TeamGroupChannel = GroupChannel
 -- prio "BULK" (large transfers) outside instances: one whisper per member,
 -- whispers aren't throttled there. Otherwise one message on the guild channel
 -- (guild mode) or the party/raid, plus whispers for members it doesn't reach.
-function ns.SendToTeam(msg, onlyOnline, prio, prefix)
+function ns.SendToTeam(msg, onlyOnline, prio, prefix, scope)
     if not ns.db then return end
+    msg = Scoped(msg, scope)
     local function Whisper(key)
         if not ns.IsSelf(key) and (not onlyOnline or ns.IsOnline(key)) then
             Send(msg, "WHISPER", ns.WhisperTarget(key), prio, nil, prefix)
@@ -389,6 +405,22 @@ function ns.BuildXPMessage()
         s.rested, s.isMax and 1 or 0, s.layerKey or "", s.layer or "", ns.HeartbeatExtra(),
         s.money or 0, s.free or 0, s.slots or 0, s.durAvg or "", s.durMin or "",
         ns.OwnFollowField and ns.OwnFollowField() or "", EncodeRep(s.rep))
+end
+
+-- Only for the FTL leader: whispered to the leader this client knows (if
+-- online), else sent to the team with the leader tag; whichever client is the
+-- leader handles it. Returns "self" (and sends nothing) when this character is
+-- the leader: handle it yourself then.
+function ns.SendToLeader(msg, prio, prefix)
+    if not ns.db then return false end
+    local leader = ns.FTLLeader and ns.FTLLeader()
+    if leader and ns.IsSelf(leader) then return "self" end
+    if leader and ns.IsOnline(leader) then
+        Send(Scoped(msg, "LEADER"), "WHISPER", ns.WhisperTarget(leader), prio, nil, prefix)
+    else
+        ns.SendToTeam(msg, true, prio, prefix, "LEADER")
+    end
+    return true
 end
 
 function ns.BroadcastXP(onlyOnline)
@@ -509,6 +541,19 @@ Receive = function(prefix, text, channel, sender)
     ns.Debug("RECV %s from %s %s %s", channel or "?", ns.Repr(sender),
         key and ("-> team key " .. ns.Repr(key)) or "-> not in team", text:sub(1, 40))
 
+    -- leader tag: drop what isn't meant for this client, pass the rest on without it
+    local scope
+    local tag, rest = text:match("^@([LF]):(.*)$")
+    if tag then
+        scope = SCOPE_NAME[tag]
+        local lead = ns.IsFTLLeader ~= nil and ns.IsFTLLeader(ns.PlayerFull())
+        if (scope == "LEADER") ~= lead then
+            ns.Debug("  ignored: only for %s", scope == "LEADER" and "the FTL leader" or "non-leaders")
+            return
+        end
+        text = rest
+    end
+
     -- connectivity test, answered for everybody
     local pv = text:match("^PING:(%d+)$")
     if pv then Send("PONG:" .. pv, "WHISPER", sender, "ALERT") return end
@@ -533,7 +578,7 @@ Receive = function(prefix, text, channel, sender)
         ns.Fire("STATUS_CHANGED")
         return
     end
-    if key then ns.Fire("TEAM_MESSAGE", key, sender, text) end -- item compare data etc.
+    if key then ns.Fire("TEAM_MESSAGE", key, sender, text, scope) end -- item compare data etc.; scope: nil | "LEADER" | "FOLLOWERS"
 end
 
 ---------------------------------------------------------------------------

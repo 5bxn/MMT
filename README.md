@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.8.7: core addon (MMT) plus optional modules (MMT_*).
+Version 0.8.8: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -172,6 +172,12 @@ Team abandon is QTAB:<questID>.
   guild still get whispers. Every client needs the same setting.
 - Modules: `MMT.SendToTeam(msg, onlyOnline, prio)`, `MMT.SendAddon(msg, channel, target, prio)`,
   `MMT.SendLong(text[, target])` for texts of any size (Help > Team communication).
+- Leader tag (FTL): `MMT.SendToLeader(msg[, prio])` reaches only the FTL leader (whispered
+  to the leader if known and online, otherwise sent to the team with the tag). Scope
+  `"FOLLOWERS"` as 5th argument of `SendToTeam` (4th of `SendLong`) reaches everybody but
+  the leader. Each receiving client checks against the leader it knows and drops what
+  isn't meant for it; modules get the scope as 4th argument of `TEAM_MESSAGE`. Clients
+  older than 0.8.8 don't know the tag and would pass such messages on to every module.
 - All clients need MMT 0.8.4 or later for large transfers (older versions don't listen
   on "MMTB").
 

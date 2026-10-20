@@ -98,7 +98,7 @@ end
 -- MMT.UI (widgets), MMT.Listen("PROFILE_CHANGED", fn)
 ]]
 
-local COMM_TEXT = "Every client runs its own MMT. Everything is sent through one queue in the core, which keeps to the game's limits (about 10 messages per prefix, then 1 per second, on group and guild channels) and sends throttled messages again. Give important messages priority \"ALERT\", large ones \"BULK\" (default \"NORMAL\"). Long texts: MMT.SendLong splits them and the other side gets the whole text. Only messages from characters in this client's team are passed on. Keep single messages under 250 bytes and start them with your own tag. Taken: XP, XP2, BYE, PING, PONG, SYNC, SYNCHI, SYNCACK, EQREQ, EQD, EQS, QNQ, QNA, LH, LHGO, LHC, QTREQ, QTS, QTD, QTAB, FOL, MPT, FTL."
+local COMM_TEXT = "Every client runs its own MMT. Everything is sent through one queue in the core, which keeps to the game's limits (about 10 messages per prefix, then 1 per second, on group and guild channels) and sends throttled messages again. Give important messages priority \"ALERT\", large ones \"BULK\" (default \"NORMAL\"). Long texts: MMT.SendLong splits them and the other side gets the whole text. Only messages from characters in this client's team are passed on. Keep single messages under 250 bytes and start them with your own tag. Leader tag (FTL): MMT.SendToLeader reaches only the FTL leader; scope \"FOLLOWERS\" reaches everybody but the leader. Each client checks against the leader it knows. Taken: XP, XP2, BYE, PING, PONG, SYNC, SYNCHI, SYNCACK, EQREQ, EQD, EQS, QNQ, QNA, LH, LHGO, LHC, QTREQ, QTS, QTD, QTAB, FOL, MPT, FTL, and the tag prefixes @L: and @F:."
 
 local COMM_CODE = [[
 -- send to the whole team (true = only members that are online);
@@ -112,10 +112,21 @@ MMT.SendAddon("EXPONG:ok", "WHISPER", sender)
 -- (to the team, or to one character as second argument)
 MMT.SendLong("EXDATA:" .. MMT.Serialize(myTable))
 
+-- only for the FTL leader (returns "self" and sends nothing when this
+-- character IS the leader: handle it here then)
+if MMT.SendToLeader("EXCOME:" .. GetZoneText()) == "self" then
+    -- this character leads
+end
+-- everybody but the leader: scope as 5th argument of SendToTeam
+-- (4th of SendLong); "LEADER" works there too
+MMT.SendToTeam("EXWAIT", true, "NORMAL", nil, "FOLLOWERS")
+
 -- receive: called for every team message the core doesn't handle itself
 --   key    team key of the sender ("First-Last")
 --   sender name as the game reported it (use it to whisper back)
-M:Listen("TEAM_MESSAGE", function(key, sender, text)
+--   scope  nil, "LEADER" or "FOLLOWERS" (the tag is already removed
+--          and messages not meant for this client never arrive)
+M:Listen("TEAM_MESSAGE", function(key, sender, text, scope)
     local money = text:match("^EXPING:(%d+)$")
     if money then
         MMT.Print("%s has %s", MMT.FullDisplay(key),
