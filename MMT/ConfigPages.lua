@@ -572,8 +572,8 @@ ns.RegisterPage("ftl", "FTL", function(page)
     L:Check("Use FTL macros", Opt("ftl", "enabled"))
     local gd, sd = Opt("ftl", "detect")
     L:Cycle("Leader", {
-        { value = "MOVE", text = "Automatic, when you move" },
         { value = "MANUAL", text = "Only by click, key, command" },
+        { value = "MOVE", text = "Automatic, when you move" },
     }, gd, sd)
     local gn, sn = Opt("ftl", "nameFormat")
     L:Cycle("{FTL} becomes", {

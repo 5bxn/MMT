@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.8.10: core addon (MMT) plus optional modules (MMT_*).
+Version 0.8.11: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -80,7 +80,7 @@ Saved data from MMT 0.1.x is converted automatically.
   Lines with {FTL} are left out on the leader's own client (setting). Change the leader
   by clicking a character in the XP window, with the key binding "Make this character
   the leader (FTL)", with `/mmt leader [name]`, or automatically when you move a
-  character on its own. Automatic detection ignores movement while following, on a
+  character on its own (Leader: "Automatic, when you move"; off by default). Automatic detection ignores movement while following, on a
   flight path or without control (feared, charmed), and movement of several team
   characters at once (a movement key or Interact with Target broadcast to every
   window): then the current leader stays. Two claims in the same second are decided
