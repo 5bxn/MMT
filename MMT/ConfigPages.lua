@@ -535,6 +535,62 @@ ns.RegisterPage("xp", "XP Window", function(page)
 end)
 
 ---------------------------------------------------------------------------
+-- Distance window format: small side window next to the settings window
+---------------------------------------------------------------------------
+local distanceFormat
+function ns.ToggleDistanceFormat(window)
+    if distanceFormat and distanceFormat:IsShown() then distanceFormat:Hide() return end
+    if not distanceFormat then
+        local f = CreateFrame("Frame", "MMTDistanceFormatFrame", window)   -- scales and hides with the settings window
+        f:SetFrameStrata(window:GetFrameStrata())
+        f:SetFrameLevel(window:GetFrameLevel() + 50)
+        f:EnableMouse(true)
+        f:SetClampedToScreen(true)
+        UI.Fill(f, 0.05, 0.05, 0.06, 0.96)
+        UI.Border(f, 0.22, 0.22, 0.24, 1)
+        f.widgets = {}
+        local title = UI.Label(f, "Distance window format", "GameFontNormal")
+        title:SetPoint("TOPLEFT", 16, -14)
+        local close = UI.TextButton(f, "x", function() f:Hide() end, 20)
+        close:SetPoint("TOPRIGHT", -8, -8)
+
+        local C = UI.Column(f, 16, -40, COL_W)
+        local gfo, sfo = Opt("distance", "font")
+        C:Cycle("Font", function()
+            local l = {}
+            for _, font in ipairs(ns.fonts) do l[#l + 1] = { value = font.name, text = font.name } end
+            return l
+        end, gfo, sfo)
+        local go, so = Opt("distance", "outline")
+        C:Cycle("Outline", {
+            { value = "NONE", text = "None" },
+            { value = "OUTLINE", text = "Thin" },
+            { value = "THICKOUTLINE", text = "Thick" },
+        }, go, so)
+        local ga, sa = Opt("distance", "align")
+        C:Cycle("Alignment", {
+            { value = "LEFT", text = "Left" },
+            { value = "CENTER", text = "Center" },
+            { value = "RIGHT", text = "Right" },
+        }, ga, sa)
+        local gz, sz = Opt("distance", "size")
+        C:Slider("Font size", 8, 32, 1, gz, sz)
+        local gw, sw = Opt("distance", "width")
+        C:Slider("Width", 40, 250, 5, gw, sw)
+        local gb, sb = Opt("distance", "bgAlpha")
+        C:Slider("Background opacity", 0, 1, 0.05, gb, sb, "%.2f")
+        f:SetSize(COL_W + 32, -C.y + 12)
+        f:SetScript("OnShow", function(self) for _, w in ipairs(self.widgets) do w.Refresh() end end)
+        UI.CloseOnEscape(f)
+        distanceFormat = f
+    end
+    distanceFormat:ClearAllPoints()
+    distanceFormat:SetPoint("TOPLEFT", window, "TOPRIGHT", 6, 0)
+    distanceFormat:Show()
+    for _, w in ipairs(distanceFormat.widgets) do w.Refresh() end
+end
+
+---------------------------------------------------------------------------
 -- Alerts: follow and crowd control
 ---------------------------------------------------------------------------
 ns.RegisterPage("alerts", "Alerts", function(page)
@@ -797,36 +853,15 @@ ns.RegisterPage("automations", "Automations", function(page)
     R:Slider("Zoom factor", 1, 2.6, 0.1, gf, sf, "%.1f")
 
     R:Header("Distance window")
-    R:Check("Show window", Opt("distance", "enabled"))
+    local gde, sde = Opt("distance", "enabled")
+    R:Check("Show window", gde, sde,
+        "Shows a small window with distance information to your target. Mostly useful for hunters that want to avoid their deadzone.")
     R:Check("Lock (click-through)", Opt("distance", "locked"))
     local gh, sh = Opt("distance", "hideNoTarget")
     R:Check("Hide without target", gh, sh, "Only applies while the window is locked.")
     local gc, sc = Opt("distance", "colorize")
     R:Check("Colour by distance", gc, sc, "Green melee, yellow up to 30, orange up to 40, red beyond.")
-    local gfo, sfo = Opt("distance", "font")
-    R:Cycle("Font", function()
-        local l = {}
-        for _, f in ipairs(ns.fonts) do l[#l + 1] = { value = f.name, text = f.name } end
-        return l
-    end, gfo, sfo)
-    local go, so = Opt("distance", "outline")
-    R:Cycle("Outline", {
-        { value = "NONE", text = "None" },
-        { value = "OUTLINE", text = "Thin" },
-        { value = "THICKOUTLINE", text = "Thick" },
-    }, go, so)
-    local ga, sa = Opt("distance", "align")
-    R:Cycle("Alignment", {
-        { value = "LEFT", text = "Left" },
-        { value = "CENTER", text = "Center" },
-        { value = "RIGHT", text = "Right" },
-    }, ga, sa)
-    local gz, sz = Opt("distance", "size")
-    R:Slider("Font size", 8, 32, 1, gz, sz)
-    local gw, sw = Opt("distance", "width")
-    R:Slider("Width", 40, 250, 5, gw, sw)
-    local gb, sb = Opt("distance", "bgAlpha")
-    R:Slider("Background opacity", 0, 1, 0.05, gb, sb, "%.2f")
+    R:Button("Format window", function() ns.ToggleDistanceFormat(page:GetParent()) end)
     R:Button("Reset window position", function() ns.ResetDistancePosition() end)
 
     R:Header("Flight paths")
