@@ -233,10 +233,12 @@ local MOVE_WINDOW = 1.2   -- seconds: team characters starting to move this clos
 local othersMoved = {}    -- [teamKey] = GetTime() of their last FTLM
 local lastReport = 0
 
-local function Moving()
-    local speed = GetUnitSpeed and GetUnitSpeed("player")
-    return speed and speed > 0
-end
+-- moving or not, from the game's start/stop events (the speed itself is a
+-- secret value in combat and can't be compared)
+local moving = false
+local function Moving() return moving end
+ns.On("PLAYER_STOPPED_MOVING", function() moving = false end)
+ns.On("PLAYER_ENTERING_WORLD", function() moving = false end)
 
 local function Plain(v) if v ~= nil and not ns.IsSecret(v) then return v end end
 
@@ -244,7 +246,7 @@ local function Plain(v) if v ~= nil and not ns.IsSecret(v) then return v end end
 local function MovingOnItsOwn()
     if not Moving() then return false end
     if ns.IsFollowing and ns.IsFollowing() then return false end
-    if UnitOnTaxi and UnitOnTaxi("player") then return false end
+    if UnitOnTaxi and ns.Safe(UnitOnTaxi, "player") then return false end
     if HasFullControl and Plain(HasFullControl()) == false then return false end   -- fear, charm, confuse
     local me = ns.PlayerFull()
     local cc = me and ns.CCState and ns.CCState(me)
@@ -260,6 +262,7 @@ local function OthersMovedNear(at)
 end
 
 ns.On("PLAYER_STARTED_MOVING", function()
+    moving = true
     local cfg = ns.db.ftl
     if not (cfg.enabled and cfg.detect == "MOVE") then return end
     -- wait a moment: a short bump or the start of a follow doesn't count

@@ -108,7 +108,7 @@ end
 local function Send(msg) if ns.SendAlert then ns.SendAlert(msg) end end   -- leader first
 
 local function InCombat()
-    return (UnitAffectingCombat and UnitAffectingCombat("player")) or InCombatLockdown()
+    return (UnitAffectingCombat and ns.Safe(UnitAffectingCombat, "player")) or InCombatLockdown()
 end
 
 ns.On("AUTOFOLLOW_BEGIN", function(name)
@@ -123,7 +123,7 @@ ns.On("AUTOFOLLOW_END", function()
     if not own.following then return end
     own.following = false
     local why = ""
-    if UnitOnTaxi and UnitOnTaxi("player") then why = "t"
+    if UnitOnTaxi and ns.Safe(UnitOnTaxi, "player") then why = "t"
     elseif InCombat() then why = "c"; own.combatBreak = true end
     Send("FOL:0:" .. why)
     local me = ns.PlayerFull()
