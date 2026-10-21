@@ -123,6 +123,9 @@ Saved data from MMT 0.1.x is converted automatically.
   "Automatically pass on loot rolls" (off by default): with Group Loot or Need before
   Greed every character passes on its rolls, except the group leader or, if chosen, the
   FTL leader (the character you play), who rolls as usual.
+  "Enable 'Pass on Loot' while in a group" (off by default): switches on the game's Pass
+  on Loot for every character in a group except that same leader; it is switched off
+  again when the character leaves the group or becomes the leader (only if MMT set it).
 - **Quest Tracker** (module): replaces the Blizzard quest tracker with a team tracker:
   Zone > [Level] Quest > Objective > one row per team member with their progress
   ("3/8", "done", "not on quest"). Mouse:

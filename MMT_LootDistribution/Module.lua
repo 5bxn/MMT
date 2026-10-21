@@ -19,7 +19,8 @@
 --    assignment, given to the master looter, or given round robin across the
 --    team (keeping the reserve), with an optional chat line saying so.
 -- 5. Loot rolls (Need/Greed): optionally passed automatically on every
---    character except the group leader (or the FTL leader).
+--    character except the group leader (or the FTL leader). Also optional:
+--    the game's "Pass on Loot" while in a group, with the same exception.
 
 local _, mod = ...
 local MMT = MMT
@@ -39,7 +40,8 @@ local M = MMT.NewModule({
         unassigned   = "LEAVE",    -- items no role wants: LEAVE | SELF | RR (round robin)
         rrNotice     = true,       -- chat line when an item without rule goes round robin
         autoPass     = false,      -- pass on loot rolls (Need/Greed) ...
-        passExcept   = "GROUP",    -- ... except on the GROUP leader or the FTL leader
+        optOut       = false,      -- "Pass on Loot" (SetOptOutOfLoot) while in a group ...
+        passExcept   = "GROUP",    -- ... both except on the GROUP leader or the FTL leader
         questRR      = true,       -- quest items round robin across the team
         report       = true,
     },
@@ -580,5 +582,40 @@ M:On("LOOT_CLOSED", function()
     C_Timer.After(0.3, CheckFailed)
 end)
 
-M.OnEnable = function() handledFor = nil; CheckGroup() end
-M.OnDisable = function() busy = false end
+M.OnEnable = function() handledFor = nil; CheckGroup(); if mod.UpdatePassOnLoot then mod.UpdatePassOnLoot() end end
+M.OnDisable = function() busy = false; if mod.UpdatePassOnLoot then mod.UpdatePassOnLoot() end end
+
+---------------------------------------------------------------------------
+-- The game's "Pass on Loot" (opt out of loot) while in a group, except on
+-- the leader. MMT only switches it off again if it switched it on.
+---------------------------------------------------------------------------
+function mod.UpdatePassOnLoot()
+    local GetOptOut = GetOptOutOfLoot or (C_PartyInfo and C_PartyInfo.GetOptOutOfLoot)
+    local SetOptOut = SetOptOutOfLoot or (C_PartyInfo and C_PartyInfo.SetOptOutOfLoot)
+    if not (GetOptOut and SetOptOut) then return end
+    M.store.optOutSet = M.store.optOutSet or false
+    local cfg = M.db
+    local want = M.enabled and cfg.optOut and IsInGroup() and not mod.KeepsRolls()
+    local now = GetOptOut() and true or false
+    if want and not now then
+        pcall(SetOptOut, true)
+        M.store.optOutSet = true
+        M:Debug("Pass on Loot on")
+        if cfg.report then MMT.Print("Pass on Loot is on (this character isn't the %s).", cfg.passExcept == "FTL" and "FTL leader" or "group leader") end
+    elseif not want and now and M.store.optOutSet then
+        pcall(SetOptOut, false)
+        M.store.optOutSet = false
+        M:Debug("Pass on Loot off")
+        if cfg.report then MMT.Print("Pass on Loot is off.") end
+    elseif not now then
+        M.store.optOutSet = false   -- switched off elsewhere (e.g. by hand)
+    end
+end
+
+local function UpdateSoon() C_Timer.After(0.5, mod.UpdatePassOnLoot) end
+M:On("GROUP_ROSTER_UPDATE", UpdateSoon)
+M:On("PARTY_LEADER_CHANGED", UpdateSoon)
+M:On("PLAYER_ENTERING_WORLD", UpdateSoon)
+M:Listen("FTL_LEADER", UpdateSoon)
+-- a changed setting applies at once
+MMT.OnRefresh(function() if M.db and MMT.ready then mod.UpdatePassOnLoot() end end)
