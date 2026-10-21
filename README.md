@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.6: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.7: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -73,8 +73,8 @@ Saved data from MMT 0.1.x is converted automatically.
   after the name until they follow again; the client of the character that was
   followed shows the raid warning "<Name> stopped following" and plays the raid warning
   sound. Options: check /follow of team, warning, sound, ignore breaks during combat
-  (then it only counts if the character still isn't following some seconds after its
-  combat; default 5, adjustable).
+  (then nothing shows during a fight, on either character's side; it only counts if the
+  character still isn't following some seconds after combat; default 5, adjustable).
   Flight paths don't count as a break.
   "Crowd control": every client reports when its character can't move: stunned, feared or
   charmed, incapacitated (polymorph, sap, sleep) or rooted (each can be switched off;
@@ -92,7 +92,7 @@ Saved data from MMT 0.1.x is converted automatically.
   by clicking a character in the XP window, with the key binding "Make this character
   the leader (FTL)", with `/mmt leader [name]`, or automatically when you move a
   character on its own (Leader: "Automatic, when you move"; off by default). Automatic detection ignores movement while following, on a
-  flight path or without control (feared, charmed), and movement of several team
+  flight path, in combat or without control (feared, charmed), and movement of several team
   characters at once (a movement key or Interact with Target broadcast to every
   window): then the current leader stays. Two claims in the same second are decided
   the same way on every client. The idea comes from ISBoxer, but unlike there the
