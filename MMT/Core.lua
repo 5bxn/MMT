@@ -4,7 +4,7 @@
 local ADDON, ns = ...
 _G.MMT = ns
 ns.title = "MMT"
-ns.version = "0.9.11"
+ns.version = "0.9.12"
 ns.prefix = "MMT"
 ns.LOGO = "Interface\\AddOns\\MMT\\Media\\Logo"   -- the MMT mark (Media/Logo.tga)
 ns.ICON = "Interface\\AddOns\\MMT\\Media\\Icon"   -- the mark on a dark tile (Media/Icon.tga)
@@ -370,6 +370,9 @@ end
 function ns.NameFromGUID(guid, fallback)
     if guid then
         local _, _, _, _, _, first, last = ns.Safe(GetPlayerInfoByGUID, guid)
+        -- a player of another realm comes as "First Last" plus that realm:
+        -- the name already holds the last name, the realm is not part of it
+        if first and first:find(" ", 1, true) then return first end
         if first and last and last ~= "" and ns.NormKey(last) ~= ns.NormKey(OwnRealm()) then
             return first .. " " .. last
         end
