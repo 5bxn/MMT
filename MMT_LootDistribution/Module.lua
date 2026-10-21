@@ -18,6 +18,8 @@
 -- 4. Items no role or rule wants (not quest items): left for manual
 --    assignment, given to the master looter, or given round robin across the
 --    team (keeping the reserve), with an optional chat line saying so.
+-- 5. Loot rolls (Need/Greed): optionally passed automatically on every
+--    character except the group leader (or the FTL leader).
 
 local _, mod = ...
 local MMT = MMT
@@ -36,6 +38,8 @@ local M = MMT.NewModule({
         reserve      = 2,          -- free bag slots every member keeps
         unassigned   = "LEAVE",    -- items no role wants: LEAVE | SELF | RR (round robin)
         rrNotice     = true,       -- chat line when an item without rule goes round robin
+        autoPass     = false,      -- pass on loot rolls (Need/Greed) ...
+        passExcept   = "GROUP",    -- ... except on the GROUP leader or the FTL leader
         questRR      = true,       -- quest items round robin across the team
         report       = true,
     },
@@ -541,6 +545,34 @@ local function Distribute()
 end
 
 M:On("LOOT_OPENED", function() wipe(pending) C_Timer.After(0.1, Distribute) end)
+
+---------------------------------------------------------------------------
+-- 5. Loot rolls: pass automatically, except on the leader
+--    (group leader, or the FTL leader = the character you play)
+---------------------------------------------------------------------------
+local ROLL_PASS = 0
+
+function mod.KeepsRolls()
+    if M.db.passExcept == "FTL" then
+        return MMT.IsFTLLeader ~= nil and MMT.IsFTLLeader(MMT.PlayerFull()) or false
+    end
+    return UnitIsGroupLeader("player") and true or false
+end
+
+M:On("START_LOOT_ROLL", function(rollID)
+    local cfg = M.db
+    if not (M.enabled and cfg.autoPass) or not rollID then return end
+    if mod.KeepsRolls() then return end
+    local link = GetLootRollItemLink and GetLootRollItemLink(rollID)
+    -- a moment later: the roll window must exist before passing closes it
+    C_Timer.After(0.2, function()
+        local roll = RollOnLoot or (C_Loot and C_Loot.RollOnLoot)
+        if not roll then return end
+        local ok, err = pcall(roll, rollID, ROLL_PASS)
+        M:Debug("pass on roll %s %s -> %s %s", tostring(rollID), tostring(link), tostring(ok), tostring(err or ""))
+        if ok and cfg.report and link then MMT.Print("Passed on %s.", link) end
+    end)
+end)
 M:On("LOOT_CLOSED", function()
     busy = false
     -- hand-outs still not cleared a moment after the window closed were refused by the game

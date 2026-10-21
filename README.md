@@ -120,6 +120,9 @@ Saved data from MMT 0.1.x is converted automatically.
   "Round robin to the team" (in turns, keeping the reserve; not for quest items or
   Bind on Pickup). "Say so in chat" prints "[Item] is not part of any role or rule,
   so it was given round robin to <Name>." (only for you).
+  "Automatically pass on loot rolls" (off by default): with Group Loot or Need before
+  Greed every character passes on its rolls, except the group leader or, if chosen, the
+  FTL leader (the character you play), who rolls as usual.
 - **Quest Tracker** (module): replaces the Blizzard quest tracker with a team tracker:
   Zone > [Level] Quest > Objective > one row per team member with their progress
   ("3/8", "done", "not on quest"). Mouse:

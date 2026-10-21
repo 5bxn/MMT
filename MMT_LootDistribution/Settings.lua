@@ -49,6 +49,16 @@ M.Page = function(_, page)
     L:Add(status, 20)
     local current = L:Note("")
 
+    L:Header("Loot rolls")
+    local gp, sp = Opt("autoPass")
+    L:Check("Automatically pass on loot rolls", gp, sp,
+        "With Group Loot or Need before Greed, every character passes on its rolls by itself, except the leader chosen below, who rolls as usual. Set it on every client.")
+    local ge, se = Opt("passExcept")
+    L:Cycle("Unless I'm the", {
+        { value = "GROUP", text = "Group leader" },
+        { value = "FTL", text = "FTL leader (character you play)" },
+    }, ge, se)
+
     -- right: master loot by roles -------------------------------------------
     local R = UI.Column(page, COL2_X, 0, COL_W)
     R:Header("Master loot by roles")
@@ -102,9 +112,10 @@ function M.Report(_, add)
     add(("-- Loot Distribution  current=%s partyML=%s raidML=%s threshold=%s isMaster=%s leader=%s"):format(
         tostring(method), tostring(partyIndex), tostring(raidIndex), tostring(mod.GetThreshold()),
         tostring(mod.IsMasterLooter()), tostring(IsInGroup() and UnitIsGroupLeader("player"))))
-    add(("settings: auto=%s method=%s threshold=%s looter=%s byRoles=%s reserve=%s unassigned=%s rrNotice=%s"):format(
+    add(("settings: auto=%s method=%s threshold=%s looter=%s byRoles=%s reserve=%s unassigned=%s rrNotice=%s autoPass=%s passExcept=%s"):format(
         tostring(M.db.autoMethod), tostring(M.db.method), tostring(M.db.threshold), tostring(M.db.looter),
-        tostring(M.db.byRoles), tostring(M.db.reserve), tostring(M.db.unassigned), tostring(M.db.rrNotice)))
+        tostring(M.db.byRoles), tostring(M.db.reserve), tostring(M.db.unassigned), tostring(M.db.rrNotice),
+        tostring(M.db.autoPass), tostring(M.db.passExcept)))
     add("quest round robin=" .. tostring(M.db.questRR))
     for itemID, key in pairs(M.store.questRR or {}) do add(("  quest item %s: last given to %s"):format(tostring(itemID), MMT.Repr(key))) end
     for _, key in ipairs(MMT.SortedMembers()) do
