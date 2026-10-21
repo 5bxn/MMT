@@ -187,9 +187,18 @@ function mod.ApplyLootSettings(force)
     end
     if cfg.method ~= "freeforall" and (force or mod.GetThreshold() ~= cfg.threshold) then
         -- the game needs a moment after a method change before the threshold sticks
+        local want = cfg.threshold
         C_Timer.After(changed and 0.8 or 0, function()
-            local ok, err = SetThreshold(cfg.threshold)
-            M:Debug("SetLootThreshold(%s) -> %s %s", tostring(cfg.threshold), tostring(ok), tostring(err or ""))
+            local ok, err = SetThreshold(want)
+            M:Debug("SetLootThreshold(%s) -> %s %s", tostring(want), tostring(ok), tostring(err or ""))
+            -- check that the game kept it; set it once more if not
+            C_Timer.After(2, function()
+                local now = mod.GetThreshold()
+                if now ~= nil and now ~= want and IsLeader() then
+                    local ok2, err2 = SetThreshold(want)
+                    M:Debug("threshold is %s, not %s: set again -> %s %s", tostring(now), tostring(want), tostring(ok2), tostring(err2 or ""))
+                end
+            end)
         end)
         changed = true
     end
@@ -412,6 +421,7 @@ end
 local BLOCK_TIME = 600
 local blocked = {}   -- [itemID] = { [key] = time }
 local pending = {}   -- [slot] = { link, key }  (open loot window)
+local CloseAssignWindow   -- below
 local closing = {}   -- pending of the window that just closed
 
 local function ItemID(link) return tonumber(link:match("item:(%d+)")) or link end
@@ -421,7 +431,10 @@ local function IsBlocked(link, key)
     return t and (GetTime() - t) < BLOCK_TIME
 end
 
-M:On("LOOT_SLOT_CLEARED", function(slot) pending[slot] = nil; closing[slot] = nil end)
+M:On("LOOT_SLOT_CLEARED", function(slot)
+    pending[slot] = nil; closing[slot] = nil
+    C_Timer.After(0, CloseAssignWindow)
+end)
 
 local function CheckFailed()
     for slot, p in pairs(closing) do
@@ -497,6 +510,20 @@ NextRoundRobin = function(slot, link, planned)
 end
 
 local busy = false
+local handedOut = {}   -- [slot] = true: MMT gave this slot away in the open loot window
+
+-- Blizzard's master loot assignment window (opened by Auto Loot or a click):
+-- closed when its item was handed out by MMT or is gone; left open for
+-- items that stay manual (e.g. Bind on Pickup)
+CloseAssignWindow = function()
+    local f = _G.MasterLooterFrame
+    if not (f and f:IsShown()) then return end
+    local slot = f.slot or (_G.LootFrame and _G.LootFrame.selectedSlot)
+    if slot == nil or handedOut[slot] or not GetLootSlotLink(slot) then
+        f:Hide()
+        M:Debug("closed the master loot window (slot %s)", tostring(slot))
+    end
+end
 
 local function Plan(needOf)
     local cfg = M.db
@@ -540,7 +567,9 @@ local function Plan(needOf)
         C_Timer.After((i - 1) * 0.25, function()
             if busy and GetLootSlotLink(p.slot) == p.link then
                 pending[p.slot] = { link = p.link, key = p.key }
+                handedOut[p.slot] = true
                 GiveMasterLoot(p.slot, p.index)
+                C_Timer.After(0.2, CloseAssignWindow)
                 M:Debug("GiveMasterLoot(%d, %d) %s -> %s", p.slot, p.index, p.link, MMT.Repr(p.key))
                 if p.rr and cfg.rrNotice then
                     MMT.Print("%s |cffffd100is not part of any role or rule, so it was given round robin to|r %s|cffffd100.|r",
@@ -591,16 +620,10 @@ local function Distribute()
     end
 end
 
--- Auto Loot picks up everything the master looter may take itself (quest
--- items, items below the threshold) before MMT can hand them out
-local autoLootHinted = false
 M:On("LOOT_OPENED", function(autoLoot)
     M:Debug("loot window opened: items=%d autoLoot=%s", GetNumLootItems() or 0, tostring(autoLoot))
     wipe(pending)
-    if autoLoot and not autoLootHinted and M.db.questRR and mod.IsMasterLooter() then
-        autoLootHinted = true
-        MMT.Print("|cffffd100Auto Loot is on: as master looter you pick up quest items yourself, so they can't go round robin. Turn off Auto Loot (Options > Controls), or hold the Auto Loot key the other way round.|r")
-    end
+    wipe(handedOut)
     C_Timer.After(0.1, Distribute)
 end)
 
