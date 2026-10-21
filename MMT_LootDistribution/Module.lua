@@ -556,8 +556,25 @@ end
 
 local function Distribute()
     local cfg = M.db
-    if busy or not M.enabled or not (cfg.byRoles or cfg.questRR or cfg.unassigned == "RR") or not mod.IsMasterLooter() then return end
+    if busy or not M.enabled or not (cfg.byRoles or cfg.questRR or cfg.unassigned == "RR") then
+        M:Debug("loot window: not handled (busy=%s enabled=%s)", tostring(busy), tostring(M.enabled))
+        return
+    end
+    if not mod.IsMasterLooter() then
+        local method, partyIndex = mod.GetMethod()
+        M:Debug("loot window: not the master looter (method=%s partyML=%s)", tostring(method), tostring(partyIndex))
+        return
+    end
     busy = true
+    -- what the window holds (debug)
+    for slot = 1, GetNumLootItems() do
+        local link = GetLootSlotLink(slot)
+        local _, name, qty, _, quality, locked, isQuestItem = GetLootSlotInfo(slot)
+        local classID = link and select(6, ((C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant)(link))
+        M:Debug("loot slot %d: %s x%s quality=%s locked=%s questFlag=%s class=%s type=%s", slot, tostring(link or name),
+            tostring(qty), tostring(quality), tostring(locked), tostring(isQuestItem), tostring(classID),
+            tostring(GetLootSlotType and GetLootSlotType(slot)))
+    end
     -- quest items in this corpse? ask the team first who still needs them
     local names, seen = {}, {}
     if cfg.questRR then
@@ -574,7 +591,18 @@ local function Distribute()
     end
 end
 
-M:On("LOOT_OPENED", function() wipe(pending) C_Timer.After(0.1, Distribute) end)
+-- Auto Loot picks up everything the master looter may take itself (quest
+-- items, items below the threshold) before MMT can hand them out
+local autoLootHinted = false
+M:On("LOOT_OPENED", function(autoLoot)
+    M:Debug("loot window opened: items=%d autoLoot=%s", GetNumLootItems() or 0, tostring(autoLoot))
+    wipe(pending)
+    if autoLoot and not autoLootHinted and M.db.questRR and mod.IsMasterLooter() then
+        autoLootHinted = true
+        MMT.Print("|cffffd100Auto Loot is on: as master looter you pick up quest items yourself, so they can't go round robin. Turn off Auto Loot (Options > Controls), or hold the Auto Loot key the other way round.|r")
+    end
+    C_Timer.After(0.1, Distribute)
+end)
 
 ---------------------------------------------------------------------------
 -- 5. Loot rolls: pass automatically, except on the leader
