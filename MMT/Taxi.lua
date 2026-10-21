@@ -50,15 +50,24 @@ end
 ---------------------------------------------------------------------------
 -- Following a team member's flight
 ---------------------------------------------------------------------------
+-- the leader's chat: who followed, who couldn't (k = not known, u = can't be reached)
+local function Tell(ok, name, why)
+    local cfg = Cfg()
+    if not (cfg and cfg.tellLeader and ns.TellLeader) then return end
+    ns.TellLeader(ok and ("NOTE:TAXI:1:" .. name) or ("NOTE:TAXI:0:" .. why .. ":" .. name))
+end
+
 local function Take(name, fromKey)
     local index, reachable = FindNode(name)
     local who = fromKey and ns.ShownName(fromKey) or "a team member"
     if not index then
         ns.Print("%s flies to %s, but that flight path isn't known on this character.", who, name)
+        Tell(false, name, "k")
         return
     end
     if not reachable then
         ns.Print("%s flies to %s, but it can't be reached from here.", who, name)
+        Tell(false, name, "u")
         return
     end
     followingTaxi = true
@@ -66,7 +75,22 @@ local function Take(name, fromKey)
     followingTaxi = false
     ns.Debug("taxi: follow %s to %s (node %s) -> %s %s", ns.Repr(fromKey), name, tostring(index), tostring(ok), tostring(err or ""))
     if ok and Cfg().report then ns.Print("Flying to %s with %s.", name, who) end
+    if ok then Tell(true, name) end
 end
+
+-- the leader's client: notes from the team
+ns.Listen("TEAM_MESSAGE", function(key, sender, text)
+    local okFlag, rest = text:match("^NOTE:TAXI:([01]):(.+)$")
+    if not okFlag or not ns.IsNoticeLeaderHere() then return end
+    local who = ns.ShownName(key)
+    if okFlag == "1" then
+        ns.Print("%s flies to %s too.", who, rest)
+    else
+        local why, name = rest:match("^(%a):(.+)$")
+        ns.Print("|cffff6666%s can't fly to %s: %s.|r", who, name or rest,
+            why == "u" and "it can't be reached from there" or "that flight path isn't known there")
+    end
+end)
 
 ns.Listen("TEAM_MESSAGE", function(key, sender, text)
     local name = text:match("^TAXI:(.+)$")

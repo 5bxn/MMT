@@ -33,9 +33,17 @@ local function CollectJunk()
     return list
 end
 
+-- tell the leader's chat (another character's client)
+local function Tell(msg)
+    if ns.db.merchant.tellLeader and ns.TellLeader then ns.TellLeader(msg) end
+end
+
 local function Report(count, value)
-    if count == 0 or not ns.db.merchant.report then return end
-    ns.Print("%d %s sold, %s made.", count, count == 1 and "item" or "items", ns.FormatMoney(value))
+    if count == 0 then return end
+    if ns.db.merchant.report then
+        ns.Print("%d %s sold, %s made.", count, count == 1 and "item" or "items", ns.FormatMoney(value))
+    end
+    Tell(("NOTE:SELL:%d:%d"):format(count, value))
 end
 
 local function SellGrey()
@@ -74,16 +82,19 @@ local function Repair()
         if limit == -1 or limit >= cost then
             RepairAllItems(true)
             if m.report then ns.Print("Repaired for %s (guild bank).", ns.FormatMoney(cost)) end
+            Tell(("NOTE:REPAIR:%d:g"):format(cost))
             return
         end
     end
 
     if GetMoney() < cost then
         ns.Print("Not enough money to repair (%s needed).", ns.FormatMoney(cost))
+        Tell(("NOTE:REPAIR:%d:x"):format(cost))
         return
     end
     RepairAllItems()
     if m.report then ns.Print("Repaired for %s.", ns.FormatMoney(cost)) end
+    Tell(("NOTE:REPAIR:%d:o"):format(cost))
 end
 
 ns.On("MERCHANT_SHOW", function()
@@ -94,4 +105,19 @@ end)
 
 ns.On("MERCHANT_CLOSED", function()
     merchantOpen = false
+end)
+
+-- the leader's client: notes from the team
+ns.Listen("TEAM_MESSAGE", function(key, sender, text)
+    local kind, a, b = text:match("^NOTE:(%u+):(%d+):?(%w*)")
+    if not kind or not ns.IsNoticeLeaderHere() then return end
+    local who = ns.ShownName(key)
+    if kind == "SELL" then
+        local count = tonumber(a)
+        ns.Print("%s sold %d grey %s for %s.", who, count, count == 1 and "item" or "items", ns.FormatMoney(tonumber(b) or 0))
+    elseif kind == "REPAIR" then
+        local cost = ns.FormatMoney(tonumber(a))
+        if b == "x" then ns.Print("|cffff6666%s doesn't have enough money to repair (%s needed).|r", who, cost)
+        else ns.Print("%s repaired for %s%s.", who, cost, b == "g" and " (guild bank)" or "") end
+    end
 end)

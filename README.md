@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.8: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.9: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -149,9 +149,14 @@ Saved data from MMT 0.1.x is converted automatically.
   anything that could cost gold, teleport, train or start a fight stays manual), sell greys, repair, role-based trades, invites (team, friends,
   guild, and anyone who whispers the keyword, default "mybox"), camera zoom,
   distance window.
+  "Go straight to the flight map": at a flight master, "I need a ride" is picked at once.
   "Take flight paths with the team": when a team member picks a destination at a flight
   master, every team member talking to a flight master too (flight map open, or opened
   within 5 seconds) flies to the same destination (as in EMA).
+  "Tell the leader" (Vendor and Flight paths, on by default): the leader's chat shows
+  which characters took the flight too or couldn't, and the other characters' grey item
+  sales and repairs (or that one lacked the money). The leader is the FTL leader, or the
+  group leader when no FTL leader is known.
 
 - **Shift**: hold it while an NPC window opens to keep that page manual; pick an option
   without Shift and the next page (dialog, quest, reward) is automated again.

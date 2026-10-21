@@ -69,6 +69,7 @@ ns.defaults = {
     taxi = {
         enabled = true,   -- take the flight path a team member picks (flight map open here)
         report  = true,   -- chat line when following a flight
+        tellLeader = true, -- the leader's chat says who followed (or couldn't)
     },
 
     -- privacy (Privacy.lua): how characters are shown
@@ -103,8 +104,8 @@ ns.defaults = {
     shiftBypass = true,
     -- quest settings moved to the Quest Tracker module (profile.quests of older
     -- profiles is copied over by the module once)
-    gossip   = { vendor = true, dialog = true },
-    merchant = { sellGrey = true, repair = true, guildRepair = false, report = true, moneyFormat = "text" },
+    gossip   = { vendor = true, taxi = true, dialog = true },
+    merchant = { sellGrey = true, repair = true, guildRepair = false, report = true, tellLeader = true, moneyFormat = "text" },
     invites  = { friends = true, bnet = true, guild = true, team = true, whisper = true, keyword = "mybox" },
     camera   = { enabled = true, factor = 2.6 },
     distance = {

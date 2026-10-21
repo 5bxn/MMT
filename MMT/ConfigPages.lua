@@ -733,6 +733,9 @@ ns.RegisterPage("automations", "Automations", function(page)
     local gv, sv = Opt("gossip", "vendor")
     L:Check("Go straight to the vendor", gv, sv,
         "Opens the vendor pane even when the NPC has other options, e.g. an innkeeper.")
+    local gtx, stx = Opt("gossip", "taxi")
+    L:Check("Go straight to the flight map", gtx, stx,
+        "At a flight master, picks \"I need a ride\" so the flight map opens at once. With \"Take flight paths with the team\" the team members then follow you without clicking.")
     local gdl, sdl = Opt("gossip", "dialog")
     L:Check("Click through NPC dialogs", gdl, sdl,
         "When an NPC has no quests and only plain dialog lines, MMT picks them one after another to advance the conversation. Lines that could cost gold, teleport, train, bind your hearthstone or start a fight are left to you, and NPCs with any other option (vendor, trainer, flights, ...) stay manual.")
@@ -748,6 +751,8 @@ ns.RegisterPage("automations", "Automations", function(page)
     local gg, sg = Opt("merchant", "guildRepair")
     L:Check("Use guild funds if allowed", gg, sg, "Falls back to your own gold.")
     L:Check("Print results to chat", Opt("merchant", "report"))
+    local gml, sml = Opt("merchant", "tellLeader")
+    L:Check("Tell the leader", gml, sml, "Items sold and repairs of the other characters are posted in the leader's chat (FTL leader, or the group leader without one).")
     local gtr, str = Opt("trade", "enabled")
     L:Check("Fill trades from role rules", gtr, str,
         "When you open a trade with a team member, the items their roles ask for go into the trade window. Same switch as on the Roles tab.")
@@ -829,6 +834,8 @@ ns.RegisterPage("automations", "Automations", function(page)
     R:Check("Take flight paths with the team", gt, st,
         "When a team member picks a destination at a flight master, every team member that is talking to a flight master too (flight map open, or opened within 5 seconds) flies to the same destination. Needs MMT on every client.")
     R:Check("Print to chat", Opt("taxi", "report"))
+    local gtl, stl = Opt("taxi", "tellLeader")
+    R:Check("Tell the leader", gtl, stl, "The leader's chat says who took the flight too, and who couldn't (FTL leader, or the group leader without one).")
 end)
 
 ---------------------------------------------------------------------------
