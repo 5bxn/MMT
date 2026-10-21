@@ -4,7 +4,7 @@
 local ADDON, ns = ...
 _G.MMT = ns
 ns.title = "MMT"
-ns.version = "0.9.10"
+ns.version = "0.9.11"
 ns.prefix = "MMT"
 ns.LOGO = "Interface\\AddOns\\MMT\\Media\\Logo"   -- the MMT mark (Media/Logo.tga)
 ns.ICON = "Interface\\AddOns\\MMT\\Media\\Icon"   -- the mark on a dark tile (Media/Icon.tga)
@@ -398,7 +398,12 @@ local handlers = {}
 function ns.On(event, fn)
     if not handlers[event] then
         handlers[event] = {}
-        frame:RegisterEvent(event)
+        -- events this client doesn't know are skipped (e.g. classic-only ones)
+        local valid = not (C_EventUtils and C_EventUtils.IsEventValid) or C_EventUtils.IsEventValid(event)
+        if valid then
+            local ok = pcall(frame.RegisterEvent, frame, event)
+            if not ok then ns.Debug("event %s not available on this client", event) end
+        end
     end
     table.insert(handlers[event], fn)
 end

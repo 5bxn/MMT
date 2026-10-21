@@ -28,6 +28,9 @@ M.Page = function(_, page)
         { value = "roundrobin", text = "Round Robin" },
         { value = "master", text = "Master Looter" },
     }, gm, sm)
+    local gog, sog = Opt("outsiderGroup")
+    L:Check("Group Loot when outsiders join", gog, sog,
+        "While a player who isn't in your team list is in the group, the loot method is Group Loot. When they leave, the method above is set again.")
     local qualities = {}
     for q = 0, 5 do qualities[#qualities + 1] = { value = q, text = MMT.QualityName(q) } end
     local gt, st = Opt("threshold")
@@ -115,8 +118,8 @@ function M.Report(_, add)
     add(("-- Loot Distribution  current=%s partyML=%s raidML=%s threshold=%s isMaster=%s leader=%s"):format(
         tostring(method), tostring(partyIndex), tostring(raidIndex), tostring(mod.GetThreshold()),
         tostring(mod.IsMasterLooter()), tostring(IsInGroup() and UnitIsGroupLeader("player"))))
-    add(("settings: auto=%s method=%s threshold=%s looter=%s byRoles=%s reserve=%s unassigned=%s rrNotice=%s autoPass=%s optOut=%s (game: %s) passExcept=%s"):format(
-        tostring(M.db.autoMethod), tostring(M.db.method), tostring(M.db.threshold), tostring(M.db.looter),
+    add(("settings: auto=%s outsiderGroup=%s method=%s threshold=%s looter=%s byRoles=%s reserve=%s unassigned=%s rrNotice=%s autoPass=%s optOut=%s (game: %s) passExcept=%s"):format(
+        tostring(M.db.autoMethod), tostring(M.db.outsiderGroup), tostring(M.db.method), tostring(M.db.threshold), tostring(M.db.looter),
         tostring(M.db.byRoles), tostring(M.db.reserve), tostring(M.db.unassigned), tostring(M.db.rrNotice),
         tostring(M.db.autoPass), tostring(M.db.optOut),
         tostring(GetOptOutOfLoot and GetOptOutOfLoot()), tostring(M.db.passExcept)))

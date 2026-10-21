@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.10: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.11: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -17,7 +17,7 @@ copied into the "Default" profile), then disable or delete OMT.
 Saved data from MMT 0.1.x is converted automatically.
 
 ## Core and modules
-- **Core** (`MMT`, always on): Team, Roles, XP Window, Automations, Profiles, plus team
+- **Core** (`MMT`, always on): Team, Roles, XP Window, Alerts, FTL, Automations, Trade / Mail / Vendor, Profiles, plus team
   communication, profile sync and debug tools.
 - **Modules** (`MMT_<Name>`, optional): separate addons that build on the core. They
   appear in the game's AddOns list and under MODULES in /mmt, where switched-off
@@ -105,7 +105,9 @@ Saved data from MMT 0.1.x is converted automatically.
   member wears in that slot (both slots for rings, trinkets and one-hand weapons),
   with the stat and item level changes if they equipped the hovered item.
 - **Loot Distribution** (module): sets Free for All, Round Robin or Master Looter and the
-  loot threshold when a group forms or a team character becomes leader. As master
+  loot threshold when a group forms or a team character becomes leader. "Group Loot when
+  outsiders join": while a player who isn't in your team list is in the group, the method
+  is Group Loot, and the chosen method again when they leave. As master
   looter it gives items at or above the threshold to the team member whose roles want
   them: first in team order with more free bag slots than the reserve. Bind on Pickup
   items are never given out: they are posted in group chat for manual assignment.
@@ -145,20 +147,40 @@ Saved data from MMT 0.1.x is converted automatically.
   [Item] - it starts a quest!", on by default), and abandon a quest on the whole team (asks first:
   "Do you want to abort this quest on your entire team?"). The quest settings of
   Core > Automations are copied over once.
-- **Automations**: gossip to vendor, click through dialog-only NPCs (plain dialog lines;
-  anything that could cost gold, teleport, train or start a fight stays manual), sell greys, repair, role-based trades, invites (team, friends,
-  guild, and anyone who whispers the keyword, default "mybox"), camera zoom,
-  distance window (distance to your target, mostly for hunters avoiding the dead zone;
-  font, outline, alignment, size, width and background are in "Format window", a small
-  window beside the settings).
-  "Go straight to the flight map": at a flight master, "I need a ride" is picked at once.
-  "Take flight paths with the team": when a team member picks a destination at a flight
-  master, every team member talking to a flight master too (flight map open, or opened
-  within 5 seconds) flies to the same destination (as in EMA).
-  "Tell the leader" (Vendor and Flight paths, on by default): the leader's chat shows
-  which characters took the flight too or couldn't, and the other characters' grey item
-  sales and repairs (or that one lacked the money). The leader is the FTL leader, or the
-  group leader when no FTL leader is known.
+- **Automations**: gossip to vendor or flight map, click through dialog-only NPCs (plain
+  dialog lines; anything that could cost gold, teleport, train or start a fight stays
+  manual), invites (team, friends, guild, and anyone who whispers the keyword, default
+  "mybox"), camera zoom, distance window (distance to your target, mostly for hunters
+  avoiding the dead zone; font, outline, alignment, size, width and background are in
+  "Format window", a small window beside the settings).
+  - "Take flight paths with the team": when a team member picks a destination at a
+    flight master, every team member talking to a flight master too (flight map open, or
+    opened within 5 seconds) flies to the same destination (as in EMA). "Tell the
+    leader": the leader's chat shows who took the flight too or couldn't.
+  - "Mount up / Dismount with the leader": when the leader mounts, the team mounts the
+    same mount (or one of the same kind, or a random favourite); when it dismounts, the
+    team dismounts (never in the air). Hold Shift to ride alone.
+  - "Release as team" / "Revive as team": an MMT panel under the game's death dialog and
+    under the corpse dialog, on every character it concerns. One click releases every
+    dead team member, or revives every ghost at its corpse (one with a corpse delay
+    revives when it ends). The panel lists who is dead or a ghost and who can revive now.
+  - "Accept automatically": resurrections and warlock summons, each from team, friends,
+    guild and/or anyone.
+  The leader is the FTL leader, or the group leader when no FTL leader is known.
+- **Trade / Mail / Vendor**:
+  - Vendor: repair (optionally with guild funds), sell grey items, print results, tell
+    the leader (sales and repairs of the other characters), money format.
+  - Sell list / never-sell list: roles from the Roles page (items and rules: item,
+    quality, Bind on Equip, item group). Items of the sell list are sold too; the
+    never-sell list wins, greys included.
+  - Buy list: items and a count; at a vendor that sells them, each character buys up to
+    that count (gold only).
+  - Mail: a "Mail to team" button beside the mail window sends every item another team
+    member's role wants to that member (items your own role wants stay), 12 per mail,
+    and optionally the gold above an amount to one team member.
+  - Guild bank: a "Deposit to guild bank" button puts the items of a chosen role into a
+    chosen tab, and optionally the gold above an amount.
+  - Trade: fill trades from role rules.
 
 - **Shift**: hold it while an NPC window opens to keep that page manual; pick an option
   without Shift and the next page (dialog, quest, reward) is automated again.

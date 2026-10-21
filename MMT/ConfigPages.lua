@@ -801,24 +801,6 @@ ns.RegisterPage("automations", "Automations", function(page)
         "Hold Shift while an NPC window opens to keep that page manual. Pick an option without Shift and the next page is automated again.")
     L:Note("Quest automation (accept, turn in, share) is in the Quest Tracker module.")
 
-    L:Header("Vendor")
-    L:Check("Sell grey items", Opt("merchant", "sellGrey"))
-    L:Check("Repair automatically", Opt("merchant", "repair"))
-    local gg, sg = Opt("merchant", "guildRepair")
-    L:Check("Use guild funds if allowed", gg, sg, "Falls back to your own gold.")
-    L:Check("Print results to chat", Opt("merchant", "report"))
-    local gml, sml = Opt("merchant", "tellLeader")
-    L:Check("Tell the leader", gml, sml, "Items sold and repairs of the other characters are posted in the leader's chat (FTL leader, or the group leader without one).")
-    local gtr, str = Opt("trade", "enabled")
-    L:Check("Fill trades from role rules", gtr, str,
-        "When you open a trade with a team member, the items their roles ask for go into the trade window. Same switch as on the Roles tab.")
-    local gm, sm = Opt("merchant", "moneyFormat")
-    L:Cycle("Money format", {
-        { value = "text",  text = "1 gold 2 silver" },
-        { value = "short", text = "1g 2s 3c" },
-        { value = "coins", text = "Coin icons" },
-    }, gm, sm)
-
     L:Header("Group invites")
     L:Check("Accept from team members", Opt("invites", "team"))
     L:Check("Accept from friends", Opt("invites", "friends"))
@@ -846,6 +828,40 @@ ns.RegisterPage("automations", "Automations", function(page)
     table.insert(page.widgets, keyword)
     L:Add(keyword, UI.ROW + 2, 24)
 
+    L:Header("When you die")
+    local grl, srl = Opt("death", "release")
+    L:Check("Release as team", grl, srl,
+        "When a character dies, a \"Release as team\" button appears under the game's death dialog on every dead character. Clicking it releases every dead team member. It lists who is dead or a ghost.")
+    local grv, srv = Opt("death", "revive")
+    L:Check("Revive as team", grv, srv,
+        "When a ghost reaches its corpse, a \"Revive as team\" button appears under the game's dialog. Clicking it revives every ghost that is at its corpse; one whose corpse still has a delay revives when it ends; one that isn't at its corpse says so. The list shows who can revive now.")
+
+    L:Header("Accept automatically")
+    -- sources x (resurrections, summons): any combination
+    local gridY = L.y
+    local resLabel = UI.Label(page, "Resurrections")
+    resLabel:SetPoint("TOPLEFT", page, "TOPLEFT", 110, gridY)
+    resLabel:SetTextColor(0.6, 0.6, 0.6)
+    local sumLabel = UI.Label(page, "Summons")
+    sumLabel:SetPoint("TOPLEFT", page, "TOPLEFT", 196, gridY)
+    sumLabel:SetTextColor(0.6, 0.6, 0.6)
+    L:Space(16)
+    local SOURCES = { { "team", "From team" }, { "friends", "From friends" }, { "guild", "From guild" }, { "anyone", "From anyone" } }
+    for _, src in ipairs(SOURCES) do
+        local key, text = src[1], src[2]
+        local label = UI.Label(page, text)
+        label:SetPoint("TOPLEFT", page, "TOPLEFT", 0, L.y - 4)
+        local res = UI.Check(page, 24, "", function() return ns.db.death.acceptRes[key] end,
+            function(v) ns.db.death.acceptRes[key] = v end,
+            "Accept resurrections " .. text:lower() .. ".")
+        res:SetPoint("TOPLEFT", page, "TOPLEFT", 126, L.y)
+        local sum = UI.Check(page, 24, "", function() return ns.db.death.acceptSummon[key] end,
+            function(v) ns.db.death.acceptSummon[key] = v end,
+            "Accept warlock summons " .. text:lower() .. ".")
+        sum:SetPoint("TOPLEFT", page, "TOPLEFT", 204, L.y)
+        L:Space(UI.ROW)
+    end
+
     local R = UI.Column(page, COL2_X, 0, COL_W)
     R:Header("Camera")
     R:Check("Maximum camera distance", Opt("camera", "enabled"))
@@ -871,11 +887,152 @@ ns.RegisterPage("automations", "Automations", function(page)
     R:Check("Print to chat", Opt("taxi", "report"))
     local gtl, stl = Opt("taxi", "tellLeader")
     R:Check("Tell the leader", gtl, stl, "The leader's chat says who took the flight too, and who couldn't (FTL leader, or the group leader without one).")
+
+    R:Header("Mounts")
+    local gmo, smo = Opt("mount", "mount")
+    R:Check("Mount up with the leader", gmo, smo,
+        "When the leader (FTL leader, or the group leader without one) mounts, every team member nearby mounts too: the same mount if it has it, else one of the same kind, else a random favourite. Hold Shift while mounting to ride alone.")
+    local gdm, sdm = Opt("mount", "dismount")
+    R:Check("Dismount with the leader", gdm, sdm,
+        "When the leader dismounts, every team member dismounts too, never in the air. Hold Shift while dismounting to do it alone.")
 end)
 
 ---------------------------------------------------------------------------
 -- Profiles
 ---------------------------------------------------------------------------
+---------------------------------------------------------------------------
+-- Trade / Mail / Vendor
+---------------------------------------------------------------------------
+-- dropdown values: "none" plus every role
+local function RoleChoices()
+    local l = { { value = "", text = "None" } }
+    local names = {}
+    for name in pairs(ns.db.roles) do names[#names + 1] = name end
+    table.sort(names)
+    for _, name in ipairs(names) do l[#l + 1] = { value = name, text = name } end
+    return l
+end
+
+local function MemberChoices()
+    local l = { { value = "", text = "Nobody" } }
+    for _, key in ipairs(ns.SortedMembers()) do l[#l + 1] = { value = key, text = ns.ShownName(key) } end
+    return l
+end
+
+ns.RegisterPage("trade", "Trade / Mail / Vendor", function(page)
+    local L = UI.Column(page, 0, 0, COL_W)
+    L:Header("Vendor")
+    L:Check("Sell grey items", Opt("merchant", "sellGrey"))
+    L:Check("Repair automatically", Opt("merchant", "repair"))
+    local gg, sg = Opt("merchant", "guildRepair")
+    L:Check("Use guild funds if allowed", gg, sg, "Falls back to your own gold.")
+    L:Check("Print results to chat", Opt("merchant", "report"))
+    local gml, sml = Opt("merchant", "tellLeader")
+    L:Check("Tell the leader", gml, sml, "Items sold and repairs of the other characters are posted in the leader's chat (FTL leader, or the group leader without one).")
+    L:Header("Trade")
+    local gtr, str = Opt("trade", "enabled")
+    L:Check("Fill trades from role rules", gtr, str,
+        "When you open a trade with a team member, the items their roles ask for go into the trade window. Same switch as on the Roles tab.")
+    local gm, sm = Opt("merchant", "moneyFormat")
+    L:Cycle("Money format", {
+        { value = "text",  text = "1 gold 2 silver" },
+        { value = "short", text = "1g 2s 3c" },
+        { value = "coins", text = "Coin icons" },
+    }, gm, sm)
+
+
+    L:Header("Sell list")
+    local gsr, ssr = Opt("merchant", "sellRole")
+    L:Cycle("Also sell items of role", RoleChoices, gsr, ssr)
+    local gnr, snr = Opt("merchant", "neverRole")
+    L:Cycle("Never sell items of role", RoleChoices, gnr, snr)
+    L:Note("Lists are roles from the Roles page: create e.g. \"Sell\" and \"Keep\" with their items and rules (item, quality, Bind on Equip, item group). The never-sell list wins, greys included.")
+
+    -- right: buy list, mail, guild bank ------------------------------------
+    local R = UI.Column(page, COL2_X, 0, COL_W)
+    R:Header("Buy list")
+    local gby, sby = Opt("merchant", "buy")
+    R:Check("Buy up to the count at vendors", gby, sby,
+        "At a vendor that sells them, the items below are bought until you carry the count (gold only). Each character buys for itself.")
+    local function BuyList() ns.db.merchant.buyList = ns.db.merchant.buyList or {} return ns.db.merchant.buyList end
+    local list = List(page, COL_W, 4, 20, function(parent, i)
+        local row = CreateFrame("Frame", nil, parent)
+        RowBackground(row, i)
+        row.name = UI.Label(row, "")
+        row.name:SetPoint("LEFT", 6, 0)
+        row.name:SetWidth(COL_W - 90)
+        row.name:SetJustifyH("LEFT")
+        row.name:SetWordWrap(false)
+        row.count = UI.Label(row, "")
+        row.count:SetPoint("RIGHT", -30, 0)
+        row.del = UI.TextButton(row, "x", function()
+            table.remove(BuyList(), row.index)
+            page.OnRefresh()
+        end)
+        row.del:SetPoint("RIGHT", -4, 0)
+        return row
+    end, function(row, entry, index)
+        row.index = index
+        row.name:SetText(entry.name or ("item " .. tostring(entry.itemID)))
+        row.count:SetText(tostring(entry.count))
+    end)
+    R:Add(list, 4 * 20 + 4)
+    local buyStatus
+    local countBox
+    local itemBox = UI.EditBox(page, COL_W - 96, "Shift-click an item", function(text, box)
+        local rule = ns.RuleFromText(text)
+        local n = tonumber(countBox:GetText()) or 0
+        if not (rule and rule.itemID) then buyStatus.Show_("Item not known: use an item link or its ID.", true) return end
+        if n <= 0 then buyStatus.Show_("Enter how many to carry.", true) return end
+        local entries = BuyList()
+        for _, e in ipairs(entries) do
+            if e.itemID == rule.itemID then e.count = n; box:SetText(""); page.OnRefresh(); return end
+        end
+        entries[#entries + 1] = { itemID = rule.itemID, name = rule.name, count = n }
+        box:SetText("")
+        box:ClearFocus()
+        page.OnRefresh()
+    end)
+    UI.AcceptItemLinks(itemBox)
+    UI.Tooltip(itemBox, "Add to the buy list", "Click into the field, then shift-click an item (bags, vendor, chat link) or type its ID. Enter the count beside it, then Add.")
+    R:Add(itemBox, 0)
+    countBox = UI.EditBox(page, 40, "20", function() itemBox:GetScript("OnEnterPressed")(itemBox) end)
+    countBox:SetNumeric(true)
+    countBox:SetPoint("LEFT", itemBox, "RIGHT", 6, 0)
+    local add = UI.Button(page, 44, "Add", function() itemBox:GetScript("OnEnterPressed")(itemBox) end)
+    add:SetPoint("LEFT", countBox, "RIGHT", 6, 0)
+    R:Space(UI.ROW + 2)
+    buyStatus = StatusLine(page)
+    buyStatus:SetWidth(COL_W)
+    R:Add(buyStatus, 16)
+
+    R:Header("Mail")
+    local gme, sme = Opt("mail", "enabled")
+    R:Check("\"Mail to team\" button at the mailbox", gme, sme,
+        "Sends every item in your bags that another team member's role wants to that member (team order; items your own role wants stay), 12 items per mail.")
+    local ggt, sgt = Opt("mail", "goldTo")
+    R:Cycle("Also mail gold to", MemberChoices, ggt, sgt)
+    local gkg, skg = Opt("mail", "keepGold")
+    R:Slider("Keep gold", 0, 1000, 10, gkg, skg)
+
+    R:Header("Guild bank")
+    local gge, sge = Opt("gbank", "enabled")
+    R:Check("\"Deposit\" button at the guild bank", gge, sge,
+        "Puts the items of the role below into the chosen tab, and optionally the gold above the amount to keep.")
+    local ggr, sgr = Opt("gbank", "role")
+    R:Cycle("Deposit items of role", RoleChoices, ggr, sgr)
+    local gtb, stb = Opt("gbank", "tab")
+    R:Slider("Tab", 1, 8, 1, gtb, stb)
+    local ggg, sgg = Opt("gbank", "gold")
+    R:Check("Also deposit gold above \"Keep gold\"", ggg, sgg)
+    local gbk, sbk = Opt("gbank", "keepGold")
+    R:Slider("Keep gold (guild bank)", 0, 1000, 10, gbk, sbk)
+
+    page.OnRefresh = function()
+        list:Render(BuyList())
+    end
+end)
+
 ns.RegisterPage("profiles", "Profiles", function(page)
     local col = UI.Column(page, 0, 0, PAGE_W)
     local copySource

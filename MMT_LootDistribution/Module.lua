@@ -32,6 +32,7 @@ local M = MMT.NewModule({
     sync = true,   -- /mmt sync <module> and the Sync button share M.db with the team
     defaults = {
         autoMethod   = true,
+        outsiderGroup = false,     -- Group Loot while a player outside the team is in the group
         method       = "master",   -- freeforall | roundrobin | master
         threshold    = 2,          -- item quality (2 = Uncommon)
         looter       = "LEADER",   -- master looter: "LEADER" or a team key
@@ -143,12 +144,36 @@ function mod.MasterLooterName()
     return (UnitName("player")), MMT.PlayerFull()
 end
 
+-- a player in the group who isn't in the team list
+function mod.HasOutsider()
+    if not IsInGroup() then return false end
+    local units = {}
+    if IsInRaid() then
+        for i = 1, (GetNumGroupMembers() or 0) do units[#units + 1] = "raid" .. i end
+    else
+        for i = 1, (GetNumSubgroupMembers() or 0) do units[#units + 1] = "party" .. i end
+    end
+    for _, unit in ipairs(units) do
+        if UnitExists(unit) and not UnitIsUnit(unit, "player") then
+            local name = MMT.NameFromGUID(MMT.Safe(UnitGUID, unit), MMT.Safe(UnitName, unit))
+            if name and name ~= "?" and not MMT.Resolve(name) then return true, name end
+        end
+    end
+    return false
+end
+
+-- the method to use now: Group Loot with an outsider (option), else the chosen one
+function mod.WantedMethod()
+    if M.db.outsiderGroup and mod.HasOutsider() then return "group" end
+    return M.db.method
+end
+
 -- force: apply even if this group/leader situation was handled already
 function mod.ApplyLootSettings(force)
     if not (M.enabled and M.db.autoMethod) then return false, "off" end
     if not IsLeader() then return false, "You need to be the group leader." end
     if InCombatLockdown() then return false, "Not in combat." end
-    local cfg = M.db
+    local cfg = setmetatable({ method = mod.WantedMethod() }, { __index = M.db })
     local current, partyIndex = mod.GetMethod()
     local masterName, masterKey = nil, nil
     if cfg.method == "master" then masterName, masterKey = mod.MasterLooterName() end
@@ -177,14 +202,17 @@ local function CheckGroup()
     if not (M.enabled and M.db.autoMethod) then return end
     if not IsInGroup() then handledFor = nil return end
     if not IsLeader() then handledFor = nil return end
-    local situation = tostring(GetNumGroupMembers()) .. (IsInRaid() and "R" or "P")
-    if handledFor then return end
-    handledFor = situation
+    local method = mod.WantedMethod()
+    -- an outsider joining or leaving changes the method: apply again
+    if handledFor and handledFor == method then return end
+    handledFor = method
     C_Timer.After(1, function()
         local ok, changed = mod.ApplyLootSettings(false)
         if ok and changed and M.db.report then
-            MMT.Print("Loot set to %s%s.", mod.METHOD_TEXT[M.db.method] or M.db.method,
-                M.db.method ~= "freeforall" and (" from " .. MMT.QualityName(M.db.threshold)) or "")
+            local m = mod.WantedMethod()
+            MMT.Print("Loot set to %s%s%s.", mod.METHOD_TEXT[m] or m,
+                m ~= "freeforall" and (" from " .. MMT.QualityName(M.db.threshold)) or "",
+                (m ~= M.db.method) and " (a player outside the team is in the group)" or "")
         end
     end)
 end
