@@ -823,6 +823,12 @@ ns.RegisterPage("automations", "Automations", function(page)
     local gb, sb = Opt("distance", "bgAlpha")
     R:Slider("Background opacity", 0, 1, 0.05, gb, sb, "%.2f")
     R:Button("Reset window position", function() ns.ResetDistancePosition() end)
+
+    R:Header("Flight paths")
+    local gt, st = Opt("taxi", "enabled")
+    R:Check("Take flight paths with the team", gt, st,
+        "When a team member picks a destination at a flight master, every team member that is talking to a flight master too (flight map open, or opened within 5 seconds) flies to the same destination. Needs MMT on every client.")
+    R:Check("Print to chat", Opt("taxi", "report"))
 end)
 
 ---------------------------------------------------------------------------

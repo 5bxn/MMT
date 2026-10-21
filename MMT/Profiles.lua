@@ -65,6 +65,12 @@ ns.defaults = {
         },
     },
 
+    -- flight paths with the team (Taxi.lua)
+    taxi = {
+        enabled = true,   -- take the flight path a team member picks (flight map open here)
+        report  = true,   -- chat line when following a flight
+    },
+
     -- privacy (Privacy.lua): how characters are shown
     privacy = {
         nameMode    = "FIRST",   -- FIRST | LAST | FULL | CLASS ("Druid 1") | SLOT ("Slot 1"); everywhere in MMT
