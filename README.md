@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.14: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.15: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -19,7 +19,9 @@ Saved data from MMT 0.1.x is converted automatically.
 ## Core and modules
 - **Core** (`MMT`, always on): Team, Roles, XP Window, Alerts, FTL, Automations, Trade / Mail / Vendor, Profiles, plus team
   communication, profile sync and debug tools.
-- **Modules** (`MMT_<Name>`, optional): separate addons that build on the core. They
+- **Modules** (`MMT_<Name>`, optional): separate addons that build on the core. Loot
+  Distribution and Quest Tracker are on by default, the others off (`## DefaultState:
+  disabled` in their TOC) until switched on in /mmt > Modules or the AddOns list. They
   appear in the game's AddOns list and under MODULES in /mmt, where switched-off
   modules are greyed out. Switching one off in /mmt stops it right away and disables
   it for the next login; switching one on starts it right away, or after a reload if
@@ -106,6 +108,18 @@ Saved data from MMT 0.1.x is converted automatically.
   Sending the macros to the team: characters on the same account with the same profile
   already have them; for other accounts use Profiles > Sync to team (`/mmt sync`). Each
   character still needs the macros on an action bar once.
+- **Item Bar** (module, off by default): item slots that are the same on every team
+  member (2 to 8, horizontal or vertical, scale 80-200%). Drop an item from your bags on
+  a slot and it appears there on every character, also on those that don't have it;
+  Ctrl-click removes it everywhere. The tooltip shows every character's count ("Name -
+  bag: X / bank: Y", privacy names; optionally the guild bank). Left-click uses the item
+  here; right-click uses it here and on the team: items without a spell (bags, clams,
+  equipment) are used on the others too, items with a spell (potions, food, quest items)
+  light up there, because WoW lets an addon use those only on a click or key press on
+  that client. Every slot has a key binding (Esc > Options > Keybindings > AddOns >
+  "MMT - Item Bar"): with key broadcasting one key press uses the item everywhere.
+  Small buttons: refresh (sync the bar to the team) and clear (both can be hidden).
+  Shift + drag moves the bar, Shift-right-click opens its settings.
 - **Item Compare** (module): set a key, hover an item and press it to see what every team
   member wears in that slot (both slots for rings, trinkets and one-hand weapons),
   with the stat and item level changes if they equipped the hovered item.
