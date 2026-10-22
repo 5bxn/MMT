@@ -134,6 +134,9 @@ Saved data from MMT 0.1.x is converted automatically.
   The master looter first asks the team who still needs the item (each client checks
   its quest log) and skips characters whose objective is complete. If the game still
   refuses a hand-out, that character is skipped for that item for 10 minutes.
+  A character with full bags still counts as having room for a stackable item that fits
+  onto a stack it carries (the master looter asks the team). Items nobody has room for
+  stay in the loot window with a chat note.
   The "keep free bag slots" reserve doesn't apply to quest items: they are given even
   into the last free slot, and with full bags they are still tried (they may stack).
   Items are recognised as quest items by the loot window or by their item class.
