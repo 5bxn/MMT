@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: MMT - Item Bar
 ## Notes: MMT module: item slots shared by the whole team, with each character's count in bags and bank.
-## Version: 1.0.0
+## Version: 1.0.1
 ## Author: bnetworking
 ## X-Repository: https://github.com/bnetworking/MMT
 ## X-License: GPL-3.0
@@ -14,4 +14,3 @@
 Module.lua
 Bar.lua
 Settings.lua
-Bindings.xml
