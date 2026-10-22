@@ -384,30 +384,46 @@ function ns.RuleMatches(rule, itemID, name, quality, classID, bindType, subClass
     return false
 end
 
--- Does any rule of the role match the item (link or ID)?
+-- How specific a matching rule is: an exact item beats an item group, a
+-- group beats an item class, and those beat Bind on Equip or a quality.
+local SPECIFIC = { item = 4, group = 3, class = 2, boe = 1, quality = 1 }
+
+-- Does any rule of the role match the item (link or ID)? Second value: the
+-- most specific matching rule (SPECIFIC), 0 if none matches.
 function ns.RoleWantsItem(roleName, item)
     local role = ns.db.roles[roleName]
-    if not role then return false end
+    if not role then return false, 0 end
     local itemID = tonumber(tostring(item):match("item:(%d+)") or item)
     local name, _, quality, _, _, _, _, _, _, _, _, classID, subClassID, bindType = ns.ItemInfo(item)
     if not classID then _, classID, subClassID = ns.ItemCategory(item) end
+    local best = 0
     for _, rule in ipairs(role.rules) do
-        if ns.RuleMatches(rule, itemID, name, quality, classID, bindType, subClassID) then return true end
-    end
-    return false
-end
-
--- Team members whose roles want the item, in team order; plus the matching roles.
-function ns.MembersForItem(item)
-    local keys, roles = {}, {}
-    for _, key in ipairs(ns.SortedMembers()) do
-        for _, role in ipairs(ns.MemberRoleList(key)) do
-            if ns.RoleWantsItem(role, item) then
-                keys[#keys + 1] = key
-                roles[key] = role
-                break
-            end
+        if ns.RuleMatches(rule, itemID, name, quality, classID, bindType, subClassID) then
+            best = math.max(best, SPECIFIC[rule.type] or 1)
         end
     end
+    return best > 0, best
+end
+
+-- Team members whose roles want the item, plus the matching roles. The
+-- members with the most specific rule come first ("Cloth" before "white
+-- items"), team order among equals.
+function ns.MembersForItem(item)
+    local keys, roles, score, pos = {}, {}, {}, {}
+    for i, key in ipairs(ns.SortedMembers()) do
+        local best, bestRole = 0, nil
+        for _, role in ipairs(ns.MemberRoleList(key)) do
+            local wants, how = ns.RoleWantsItem(role, item)
+            if wants and how > best then best, bestRole = how, role end
+        end
+        if best > 0 then
+            keys[#keys + 1] = key
+            roles[key], score[key], pos[key] = bestRole, best, i
+        end
+    end
+    table.sort(keys, function(a, b)
+        if score[a] ~= score[b] then return score[a] > score[b] end
+        return pos[a] < pos[b]
+    end)
     return keys, roles
 end

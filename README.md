@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.15: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.16: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -128,7 +128,10 @@ Saved data from MMT 0.1.x is converted automatically.
   outsiders join": while a player who isn't in your team list is in the group, the method
   is Group Loot, and the chosen method again when they leave. As master
   looter it gives items at or above the threshold to the team member whose roles want
-  them. "Several have the role": fill up by team order (the first in team order with
+  them. When roles of different members want the same item, the most specific rule
+  wins: an exact item, then an item group ("Cloth"), then an item class, then Bind on
+  Equip or a quality ("white items"); this also applies to trades and mail. "Several
+  have the role": fill up by team order (the first in team order with
   more free bag slots than the reserve gets everything, then the next) or round robin
   (in turns). "Role members have no room": leave for manual, give to the next team
   member with room (round robin), or to the master looter. Bind on Pickup
