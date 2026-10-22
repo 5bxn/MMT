@@ -653,7 +653,7 @@ local function Plan(needOf)
                 else
                     M:Debug("left %s in the loot window (%s)", link, tostring(role))
                     if cfg.report and (role == "no space" or role == "no rule, nobody with room") then
-                        MMT.Print("|cffffd100%s stays in the loot window: no team member has room for it.|r", link)
+                        MMT.Print("%s |cffffd100stays in the loot window: no team member has room for it.|r", link)
                     end
                 end
             end
