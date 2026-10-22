@@ -128,7 +128,10 @@ Saved data from MMT 0.1.x is converted automatically.
   outsiders join": while a player who isn't in your team list is in the group, the method
   is Group Loot, and the chosen method again when they leave. As master
   looter it gives items at or above the threshold to the team member whose roles want
-  them: first in team order with more free bag slots than the reserve. Bind on Pickup
+  them. "Several have the role": fill up by team order (the first in team order with
+  more free bag slots than the reserve gets everything, then the next) or round robin
+  (in turns). "Role members have no room": leave for manual, give to the next team
+  member with room (round robin), or to the master looter. Bind on Pickup
   items are never given out: they are posted in group chat for manual assignment.
   "Auto-Round Robin quest items": quest items go to the team in turns (team order).
   The master looter first asks the team who still needs the item (each client checks

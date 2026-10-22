@@ -72,6 +72,21 @@ M.Page = function(_, page)
     local gr, sr = Opt("byRoles")
     masterOnly[#masterOnly + 1] = R:Check("Give items by roles", gr, sr,
         "As master looter, items at or above the threshold go to the team member whose roles want them (see Roles). Several members with that role: the first one in team order who has room.")
+    local gmr, smr = Opt("multiRole")
+    masterOnly[#masterOnly + 1] = R:Cycle("Several have the role", {
+        { value = "FILL", text = "Fill up by team order" },
+        { value = "RR", text = "Round robin" },
+    }, gmr, smr)
+    UI.Tooltip(masterOnly[#masterOnly], "Several have the role",
+        "Fill up by team order: the first of them in team order gets everything until their bags are full (keeping the free slots below), then the next. Round robin: they get the items in turns.")
+    local gnr, snr = Opt("noRoom")
+    masterOnly[#masterOnly + 1] = R:Cycle("Role members have no room", {
+        { value = "LEAVE", text = "Leave for manual" },
+        { value = "RR", text = "Next team member with room" },
+        { value = "SELF", text = "Give to master looter" },
+    }, gnr, snr)
+    UI.Tooltip(masterOnly[#masterOnly], "Role members have no room",
+        "When a role wants the item but none of its members has room: leave it in the loot window, give it to the next team member with room (round robin, keeping the free slots), or to the master looter. Quest items are handled by their own round robin.")
     local gres, sres = Opt("reserve")
     masterOnly[#masterOnly + 1] = R:Slider("Keep free bag slots", 0, 20, 1, gres, sres)
     local gu, su = Opt("unassigned")
@@ -118,10 +133,10 @@ function M.Report(_, add)
     add(("-- Loot Distribution  current=%s partyML=%s raidML=%s threshold=%s isMaster=%s leader=%s"):format(
         tostring(method), tostring(partyIndex), tostring(raidIndex), tostring(mod.GetThreshold()),
         tostring(mod.IsMasterLooter()), tostring(IsInGroup() and UnitIsGroupLeader("player"))))
-    add(("settings: auto=%s outsiderGroup=%s method=%s threshold=%s looter=%s byRoles=%s reserve=%s unassigned=%s rrNotice=%s autoPass=%s optOut=%s (game: %s) passExcept=%s"):format(
+    add(("settings: auto=%s outsiderGroup=%s method=%s threshold=%s looter=%s byRoles=%s reserve=%s unassigned=%s rrNotice=%s multiRole=%s noRoom=%s autoPass=%s optOut=%s (game: %s) passExcept=%s"):format(
         tostring(M.db.autoMethod), tostring(M.db.outsiderGroup), tostring(M.db.method), tostring(M.db.threshold), tostring(M.db.looter),
         tostring(M.db.byRoles), tostring(M.db.reserve), tostring(M.db.unassigned), tostring(M.db.rrNotice),
-        tostring(M.db.autoPass), tostring(M.db.optOut),
+        tostring(M.db.multiRole), tostring(M.db.noRoom), tostring(M.db.autoPass), tostring(M.db.optOut),
         tostring(GetOptOutOfLoot and GetOptOutOfLoot()), tostring(M.db.passExcept)))
     add("quest round robin=" .. tostring(M.db.questRR))
     for itemID, key in pairs(M.store.questRR or {}) do add(("  quest item %s: last given to %s"):format(tostring(itemID), MMT.Repr(key))) end

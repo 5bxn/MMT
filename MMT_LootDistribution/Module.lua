@@ -40,6 +40,8 @@ local M = MMT.NewModule({
         reserve      = 2,          -- free bag slots every member keeps
         unassigned   = "LEAVE",    -- items no role wants: LEAVE | SELF | RR (round robin)
         rrNotice     = true,       -- chat line when an item without rule goes round robin
+        multiRole    = "FILL",     -- several members with the role: FILL (team order) | RR (in turns)
+        noRoom       = "LEAVE",    -- no role member has room: LEAVE | RR (next with room) | SELF
         autoPass     = false,      -- pass on loot rolls (Need/Greed) ...
         optOut       = false,      -- "Pass on Loot" (SetOptOutOfLoot) while in a group ...
         passExcept   = "GROUP",    -- ... both except on the GROUP leader or the FTL leader
@@ -386,10 +388,22 @@ local function Choose(slot, link, planned, isQuest)
     local keys, roles = MMT.MembersForItem(link)
     -- "give by roles" off: items a role wants stay for manual assignment
     if not cfg.byRoles and #keys > 0 then return nil, nil, "roles off" end
-    for _, key in ipairs(keys) do
+    -- several members want it: in team order (fill up), or in turns from the
+    -- one after the last receiver of this group (round robin)
+    local order = keys
+    local group = table.concat(keys, "|")
+    if cfg.multiRole == "RR" and #keys > 1 then
+        M.store.roleRR = M.store.roleRR or {}
+        local last, start = M.store.roleRR[group], 1
+        for i, key in ipairs(keys) do if key == last then start = i + 1 end end
+        order = {}
+        for n = 0, #keys - 1 do order[#order + 1] = keys[(start - 1 + n) % #keys + 1] end
+    end
+    for _, key in ipairs(order) do
         local index = CandidateIndex(slot, key)
         local room, free = HasRoom(key, link, planned, reserve)
         if index and room then
+            if cfg.multiRole == "RR" and #keys > 1 then M.store.roleRR[group] = key end
             return key, index, roles[key]
         end
         M:Debug("skip %s for %s: candidate=%s free=%s reserve=%d", MMT.Repr(key), link,
@@ -404,6 +418,17 @@ local function Choose(slot, link, planned, isQuest)
         local key, index = NextRoundRobin(slot, link, planned)
         if key then return key, index, "round robin", true end
         return nil, nil, "no rule, nobody with room"
+    end
+    -- a role wants it but none of its members has room
+    if #keys > 0 and not isQuest then
+        if cfg.noRoom == "RR" then
+            local key, index = NextRoundRobin(slot, link, planned)
+            if key then return key, index, "role members full, round robin" end
+        elseif cfg.noRoom == "SELF" then
+            local me = MMT.PlayerFull()
+            local index = CandidateIndex(slot, me)
+            if index and HasRoom(me, link, planned, reserve) then return me, index, "role members full" end
+        end
     end
     return nil, nil, (#keys == 0) and "no role" or "no space"
 end
@@ -652,7 +677,9 @@ local function Plan(needOf)
                     if not MMT.IsSelf(key) then NoteGiven(key) end
                 else
                     M:Debug("left %s in the loot window (%s)", link, tostring(role))
-                    if cfg.report and (role == "no space" or role == "no rule, nobody with room") then
+                    if cfg.report and role == "no space" then
+                        MMT.Print("%s |cffffd100stays in the loot window: the members of its role have no room.|r", link)
+                    elseif cfg.report and role == "no rule, nobody with room" then
                         MMT.Print("%s |cffffd100stays in the loot window: no team member has room for it.|r", link)
                     end
                 end
