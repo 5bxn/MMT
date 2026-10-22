@@ -19,6 +19,7 @@ local function Cfg() return ns.db and ns.db.warn end
 local RAID_WARNING_SOUND = (SOUNDKIT and SOUNDKIT.RAID_WARNING) or 8959
 
 local function Show(text)
+    if not ns.AlertAllowed("warn", text) then return end
     local cfg = Cfg()
     ns.Print("|cffffa020%s|r", text)
     if cfg.raidWarning and RaidNotice_AddMessage and RaidWarningFrame then

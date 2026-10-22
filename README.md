@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.13: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.14: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -75,7 +75,9 @@ Saved data from MMT 0.1.x is converted automatically.
   sound. Options: check /follow of team, warning, sound, ignore breaks during combat
   (then nothing shows during a fight, on either character's side; it only counts if the
   character still isn't following some seconds after combat; default 5, adjustable).
-  Flight paths don't count as a break.
+  Flight paths don't count as a break, nor does following again within half a second
+  (a new /follow ends the old one for a split second). The same alert about the same
+  character (follow, crowd control, bags and quest log) shows at most once every 5 s.
   "Crowd control": every client reports when its character can't move: stunned, feared or
   charmed, incapacitated (polymorph, sap, sleep) or rooted (each can be switched off;
   effects shorter than 2 seconds are ignored, adjustable). The row turns orange and
