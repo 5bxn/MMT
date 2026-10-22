@@ -107,11 +107,19 @@ local function Tooltip(b)
     GameTooltip:Show()
 end
 
+-- The secure template acts on the key/mouse press when "cast on key down" is
+-- on (the default) and on the release otherwise: slots get both, and MMT's
+-- own click handling runs only in the phase the game uses.
+local function ActivePhase(down)
+    local onDown = GetCVarBool and GetCVarBool("ActionButtonUseKeyDown")
+    return (down and true or false) == (onDown and true or false)
+end
+
 local function Button(slot)
     local b = CreateFrame("Button", "MMTItemBarButton" .. slot, f, "SecureActionButtonTemplate")
     b.slot = slot
     b:SetSize(SIZE, SIZE)
-    b:RegisterForClicks("AnyUp")
+    b:RegisterForClicks("AnyUp", "AnyDown")
     b:RegisterForDrag("LeftButton")
     b.bg = b:CreateTexture(nil, "BACKGROUND")
     b.bg:SetAllPoints()
@@ -131,12 +139,13 @@ local function Button(slot)
     hl:SetColorTexture(1, 1, 1, 0.12)
 
     -- an item on the cursor goes into the slot instead of using the old one
-    b:SetScript("PreClick", function(self)
-        if GetCursorInfo() == "item" and not InCombatLockdown() then
+    b:SetScript("PreClick", function(self, _, down)
+        if ActivePhase(down) and GetCursorInfo() == "item" and not InCombatLockdown() then
             self:SetAttribute("type1", nil) self:SetAttribute("type2", nil)
         end
     end)
-    b:SetScript("PostClick", function(self, button)
+    b:SetScript("PostClick", function(self, button, down)
+        if not ActivePhase(down) then return end
         if DropOn(self) then ApplyAttributes(self) return end
         local id = mod.Items()[self.slot]
         if IsShiftKeyDown() then

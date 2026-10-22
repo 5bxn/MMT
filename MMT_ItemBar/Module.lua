@@ -227,7 +227,7 @@ M.OnSyncReceived = function() if mod.Update then mod.Update() end end
 M.Report = function(_, add)
     local ids = {}
     for slot = 1, mod.MAX_SLOTS do ids[#ids + 1] = tostring(mod.Items()[slot] or "-") end
-    add(("-- Item Bar 1.0.1  slots=%d layout=%s scale=%s items=[%s]"):format(M.db.slots, M.db.layout,
+    add(("-- Item Bar 1.0.2  slots=%d layout=%s scale=%s items=[%s]"):format(M.db.slots, M.db.layout,
         tostring(M.db.scale), table.concat(ids, ",")))
     for key, t in pairs(mod.counts) do
         local parts = {}
