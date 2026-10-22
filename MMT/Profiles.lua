@@ -117,7 +117,7 @@ ns.defaults = {
     gossip   = { vendor = true, taxi = true, dialog = true },
     merchant = { sellGrey = true, repair = true, guildRepair = false, report = true, tellLeader = true, moneyFormat = "text",
                  sellRole = "", neverRole = "",          -- sell list / never-sell list (role names)
-                 buy = false, buyList = {} },            -- buy list: { itemID, name, count }
+                 buy = false, buyList = {} },            -- buy list: { itemID, name, count, who }
     mail     = { enabled = true, goldTo = "", keepGold = 100 },     -- mailbox button: role items to the team, gold above keepGold
     gbank    = { enabled = true, role = "", tab = 1, gold = false, keepGold = 100 },   -- guild bank button
     -- automations
