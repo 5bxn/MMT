@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.12: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.13: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -84,6 +84,9 @@ Saved data from MMT 0.1.x is converted automatically.
   client (the character you play); with no leader known, from every client.
   Follow, crowd control and layer hop messages go to the FTL leader first (whispered,
   highest priority) and then to the rest of the team.
+  "Bags and quest log": the leader (FTL leader, or the group leader) gets a chat line,
+  and optionally a raid warning and sound, when a character gets down to a set number
+  of free bag slots (default 2) or free quest slots (default 3), and again when full.
 - **FTL** (Focusless, Targetless, Leaderless): macros that always target the character
   you are controlling right now, like `/follow {FTL}` or `/assist {FTL}`. Write them on
   the FTL page; MMT turns them into account macros ("FTL Follow" and "FTL Assist" by
@@ -143,7 +146,9 @@ Saved data from MMT 0.1.x is converted automatically.
   alignment, outline, and font, size and colour for each of the four levels.
   Quest automation lives here too: accept from NPCs and from the group, turn in, skip
   grey quests, announce "ready for turn-in", share new quests automatically, announce
-  quests that can't be shared, announce looted items that start a quest ("Looted
+  quests that can't be shared, mark the reward choices (a coin on the one that sells
+  for the most, a green arrow on upgrades: wearable and of a higher item level than
+  what is worn in that slot), announce looted items that start a quest ("Looted
   [Item] - it starts a quest!", on by default), and abandon a quest on the whole team (asks first:
   "Do you want to abort this quest on your entire team?"). The quest settings of
   Core > Automations are copied over once.

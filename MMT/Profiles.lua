@@ -79,6 +79,16 @@ ns.defaults = {
         hideOutside = false,     -- also replace names in Blizzard frames, chat and tooltips
     },
 
+    -- room warnings (Warnings.lua): shown on the leader's client
+    warn = {
+        bags        = true,   -- bags almost full
+        bagsAt      = 2,      -- ... at this many free slots or fewer
+        quests      = true,   -- quest log almost full
+        questsAt    = 3,      -- ... at this many free quest slots or fewer
+        raidWarning = true,
+        sound       = false,
+    },
+
     -- crowd control check (CC.lua)
     cc = {
         enabled     = true,   -- report when a team character can't move
