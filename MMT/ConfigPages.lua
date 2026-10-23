@@ -4,9 +4,9 @@
 local _, ns = ...
 local UI = ns.UI
 local A = UI.ACCENT
-local PAGE_W = 518
-local COL_W = 248
-local COL2_X = 270
+local PAGE_W = 698
+local COL_W = 330
+local COL2_X = 366
 
 local function Opt(section, key)
     return function() return ns.db[section][key] end,
@@ -106,7 +106,7 @@ ns.RegisterPage("team", "Team", function(page)
         row.name:SetPoint("LEFT", 22, 0)
         row.roles = UI.Label(row, "")
         row.roles:SetPoint("LEFT", 220, 0)
-        row.roles:SetWidth(190)
+        row.roles:SetWidth(330)
         row.roles:SetJustifyH("LEFT")
         row.roles:SetWordWrap(false)
         row.roles:SetTextColor(0.55, 0.55, 0.55)
@@ -243,16 +243,13 @@ end)
 ---------------------------------------------------------------------------
 -- Roles
 ---------------------------------------------------------------------------
-local LEFT_W, RIGHT_X, RIGHT_W = 180, 200, 318
+local LEFT_W, RIGHT_X, RIGHT_W = 220, 250, 440
 
 ns.RegisterPage("roles", "Roles", function(page)
     local selected
     local quality, itemGroup = 0, "cloth"
 
-    local top = UI.Column(page, 0, 0, PAGE_W)
-    local gt, st = Opt("trade", "enabled")
-    top:Check("Fill the trade window from role rules", gt, st,
-        "When you open a trade with a team member, the items their roles ask for go into the trade window. You still accept the trade yourself. /mmt trade fills it again.")
+    local top = { y = 0 }   -- trade switch: Trade / Mail / Vendor page
 
     -- left: roles --------------------------------------------------------
     local L = UI.Column(page, 0, top.y, LEFT_W)
@@ -956,10 +953,6 @@ ns.RegisterPage("trade", "Trade / Mail / Vendor", function(page)
     L:Check("Print results to chat", Opt("merchant", "report"))
     local gml, sml = Opt("merchant", "tellLeader")
     L:Check("Tell the leader", gml, sml, "Items sold and repairs of the other characters are posted in the leader's chat (FTL leader, or the group leader without one).")
-    L:Header("Trade")
-    local gtr, str = Opt("trade", "enabled")
-    L:Check("Fill trades from role rules", gtr, str,
-        "When you open a trade with a team member, the items their roles ask for go into the trade window. Same switch as on the Roles tab.")
     local gm, sm = Opt("merchant", "moneyFormat")
     L:Cycle("Money format", {
         { value = "text",  text = "1 gold 2 silver" },
@@ -967,6 +960,19 @@ ns.RegisterPage("trade", "Trade / Mail / Vendor", function(page)
         { value = "coins", text = "Coin icons" },
     }, gm, sm)
 
+    L:Header("Trade")
+    local gtr, str = Opt("trade", "enabled")
+    L:Check("Fill trades from role rules", gtr, str,
+        "When you open a trade with a team member, the items their roles ask for go into the trade window. You still accept the trade yourself. /mmt trade fills it again.")
+    local gsh, ssh = Opt("trade", "shareRole")
+    L:Cycle("Share among team", RoleChoices, gsh, function(v) ssh(v) ns.Refresh() end)
+    L:Note("Items of this role are split evenly among the members that have it. In a trade between two of them, the one above the even share gives what the other is missing.")
+    local shareInfo = UI.Label(page, "")
+    shareInfo:SetWidth(COL_W)
+    shareInfo:SetJustifyH("LEFT")
+    shareInfo:SetJustifyV("TOP")
+    shareInfo:SetTextColor(0.75, 0.75, 0.75)
+    L:Add(shareInfo, 66)
 
     L:Header("Sell list")
     local gsr, ssr = Opt("merchant", "sellRole")
@@ -1068,6 +1074,7 @@ ns.RegisterPage("trade", "Trade / Mail / Vendor", function(page)
 
     page.OnRefresh = function()
         list:Render(BuyList())
+        shareInfo:SetText(ns.ShareSummary and ns.ShareSummary() or "")
     end
 end)
 

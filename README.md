@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.18: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.19: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -54,7 +54,8 @@ Saved data from MMT 0.1.x is converted automatically.
   click the field and shift-click an item anywhere; IDs and exact names work too),
   rules (all grey, all Bind on Equip, by quality) and item groups (Cloth, Leather,
   Herbs, Ore/bars/stone, Enchanting, Potions, Food & drink, Reagents, Consumables, ...).
-  Opening a trade with a team member puts the matching items in. You accept yourself.
+  Opening a trade with a team member puts the matching items in (switch on the Trade /
+  Mail / Vendor page). You accept yourself.
 - **XP Window**: XP %, rested XP %, gold, free bag slots, durability (lowest item or
   average), plus font, layout, size, scale and opacity. Gold, bags and durability sit in
   their own column left of the name; the bar starts at the name. "Bar shows": experience
@@ -203,6 +204,15 @@ Saved data from MMT 0.1.x is converted automatically.
   - Sell list / never-sell list: roles from the Roles page (items and rules: item,
     quality, Bind on Equip, item group). Items of the sell list are sold too; the
     never-sell list wins, greys included.
+  - Trade: "Fill trades from role rules" puts the items the partner's roles want into
+    the trade window (it was on the Roles page). "Share among team" picks a role
+    whose items are split evenly among the members that have it: every member's MMT
+    reports its counts, the share per item is the total of the role members divided by
+    their number (rounded down), and in a trade between two members the one above the
+    share gives the other what is missing (no more than it has above the share; stacks
+    are split as needed). Trades with characters without the role are not affected.
+    Example: members 1, 2 and 4 carry 50, 0 and 40 water: 30 each; 1 trading with 2
+    gives 20, 1 with 4 gives nothing, 4 with 2 gives 10.
   - Buy list: items and a count; at a vendor that sells them, each character buys up to
     that count (gold only). "Buy on" picks one character for an item; then only that
     character buys it.
@@ -211,7 +221,6 @@ Saved data from MMT 0.1.x is converted automatically.
     and optionally the gold above an amount to one team member.
   - Guild bank: a "Deposit to guild bank" button puts the items of a chosen role into a
     chosen tab, and optionally the gold above an amount.
-  - Trade: fill trades from role rules.
 
 - **Shift**: hold it while an NPC window opens to keep that page manual; pick an option
   without Shift and the next page (dialog, quest, reward) is automated again.

@@ -12,7 +12,7 @@ ns.defaults = {
     -- Team & roles ---------------------------------------------------------
     team  = {},   -- [key "First-Last"] = { name, last, class, order, roles = {[role]=true} }
     roles = {},   -- [role name] = { rules = { rule, ... } }
-    trade = { enabled = true },
+    trade = { enabled = true, shareRole = "" },   -- shareRole: role shared evenly among its members
 
     -- XP window ------------------------------------------------------------
     xp = {

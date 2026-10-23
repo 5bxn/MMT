@@ -8,7 +8,7 @@ local _, ns = ...
 local UI = ns.UI
 local A = UI.ACCENT
 
-local WIDTH, HEIGHT, NAV = 700, 620, 150
+local WIDTH, HEIGHT, NAV = 880, 620, 150
 local NAV_ROWS = 16                                     -- page entries visible at once
 local NAV_ROW, NAV_HEAD, NAV_TOP = 26, 22, -58
 local NAV_VIEW = NAV_ROWS * NAV_ROW + 2 * NAV_HEAD      -- height of the page list
