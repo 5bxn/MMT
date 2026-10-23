@@ -927,6 +927,19 @@ local function RoleChoices()
     return l
 end
 
+-- after a reset or a new empty profile: modules back to their defaults too?
+-- show(msg) reports the result (default: chat)
+function ns.AskResetModules(done, show)
+    show = show or function(msg) ns.Print("%s", msg) end
+    UI.Confirm(done .. "\n\nAlso switch the modules back to their default (on or off)?", "Reset modules", function()
+        local changed, reload = ns.ResetModuleStates()
+        if changed == 0 then show(done .. " Modules were already at their defaults.")
+        else show(("%s %d %s switched%s."):format(done, changed, changed == 1 and "module" or "modules",
+            reload and "; reload the UI to load the ones switched on" or "")) end
+        ns.Refresh()
+    end, "Keep modules")
+end
+
 local function MemberChoices()
     local l = { { value = "", text = "Nobody" } }
     for _, key in ipairs(ns.SortedMembers()) do l[#l + 1] = { value = key, text = ns.ShownName(key) } end
@@ -1076,6 +1089,7 @@ ns.RegisterPage("profiles", "Profiles", function(page)
     col:Add(active, UI.ROW + 6)
 
     local status
+    local function AskModules(done) ns.AskResetModules(done, function(msg) status.Show_(msg) end) end
     local newName = UI.EditBox(page, 230, "New profile name", nil)
     col:Add(newName, 0)
     local function Create(copy)
@@ -1084,6 +1098,7 @@ ns.RegisterPage("profiles", "Profiles", function(page)
             ns.SetProfile(name)
             newName:SetText(""); newName:ClearFocus()
             status.Show_(("Created \"%s\"%s."):format(name, copy and " as a copy of the current settings" or ""))
+            if not copy then AskModules(("Created \"%s\"."):format(name)) end
         else
             status.Show_("Enter a name that isn't used yet.", true)
         end
@@ -1116,6 +1131,7 @@ ns.RegisterPage("profiles", "Profiles", function(page)
     local reset = ConfirmButton(page, 120, "Reset profile", function()
         ns.ResetProfile()
         status.Show_("Profile reset to defaults.")
+        AskModules("Profile reset to defaults.")
     end)
     col:Add(reset, 0)
     local delete = ConfirmButton(page, 120, "Delete profile", function()

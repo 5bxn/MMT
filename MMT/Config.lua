@@ -488,6 +488,7 @@ SlashCmdList.MMT = function(msg)
     elseif cmd == "reset" then
         ns.ResetProfile()
         ns.Print("Profile \"%s\" reset to defaults.", ns.CurrentProfileName())
+        if ns.AskResetModules then ns.AskResetModules(("Profile \"%s\" reset."):format(ns.CurrentProfileName())) end
     else
         ns.Print("/mmt - open settings")
         ns.Print("/mmt xp - show/hide the XP window")

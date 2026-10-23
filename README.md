@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.17: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.18: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -21,7 +21,7 @@ Saved data from MMT 0.1.x is converted automatically.
   communication, profile sync and debug tools.
 - **Modules** (`MMT_<Name>`, optional): separate addons that build on the core. Loot
   Distribution and Quest Tracker are on by default, the others off (`## DefaultState:
-  disabled` in their TOC) until switched on in /mmt > Modules or the AddOns list. They
+  disabled` and `## X-MMT-DefaultState: disabled` in their TOC) until switched on in /mmt > Modules or the AddOns list. They
   appear in the game's AddOns list and under MODULES in /mmt, where switched-off
   modules are greyed out. Switching one off in /mmt stops it right away and disables
   it for the next login; switching one on starts it right away, or after a reload if
@@ -215,7 +215,8 @@ Saved data from MMT 0.1.x is converted automatically.
 
 - **Shift**: hold it while an NPC window opens to keep that page manual; pick an option
   without Shift and the next page (dialog, quest, reward) is automated again.
-- **Profiles**: per character; copy, reset, delete, export/import.
+- **Profiles**: per character; copy, reset, delete, export/import. After a reset or a new
+  empty profile, MMT asks whether to switch the modules back to their default (on or off) too.
 - **Sync to team**: `/mmt sync` (or the blue button in the bottom right of Profiles) sends
   the core settings of the active profile: team, roles, XP window incl. its position,
   automations, distance window. Module settings are not included. Item Compare, Loot

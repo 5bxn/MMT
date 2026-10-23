@@ -257,6 +257,32 @@ function ns.SetModuleEnabled(entry, on)
     return "stopped"
 end
 
+-- the module's state on a fresh install: "## DefaultState: disabled" in its
+-- TOC (the game may not hand that field to addons, so modules repeat it as
+-- "## X-MMT-DefaultState: disabled")
+function ns.ModuleDefaultOn(addon)
+    local function Field(f)
+        local ok, v = pcall(GetMetadata, addon, f)
+        return ok and v or nil
+    end
+    local v = Field("X-MMT-DefaultState") or Field("DefaultState")
+    return not (v and v:lower():find("disabled"))
+end
+
+-- switches every module to its default state. Returns the number changed and
+-- whether a UI reload is needed.
+function ns.ResetModuleStates()
+    local changed, reload = 0, false
+    for _, e in ipairs(ns.InstalledModules()) do
+        local on = ns.ModuleDefaultOn(e.addon)
+        if on ~= e.enabled then
+            changed = changed + 1
+            if ns.SetModuleEnabled(e, on) == "reload" then reload = true end
+        end
+    end
+    return changed, reload
+end
+
 ---------------------------------------------------------------------------
 -- Settings sync of modules (modules opt in with sync = true in NewModule)
 ---------------------------------------------------------------------------

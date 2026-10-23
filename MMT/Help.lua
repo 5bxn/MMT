@@ -40,6 +40,7 @@ local MODULE_CODE = [[
 ## X-Repository: https://github.com/you/your-repo
 ## Dependencies: MMT
 ## DefaultState: disabled
+## X-MMT-DefaultState: disabled
 ## X-MMT-Module: 1
 ## X-MMT-Title: Example
 
