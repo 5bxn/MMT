@@ -15,8 +15,8 @@
 
 local _, ns = ...
 
-local GetNumSlots = (C_Container and C_Container.GetContainerNumSlots) or GetContainerNumSlots
-local Pickup = (C_Container and C_Container.PickupContainerItem) or PickupContainerItem
+local function GetNumSlots(bag) return ((C_Container and C_Container.GetContainerNumSlots) or GetContainerNumSlots)(bag) end
+local function Pickup(bag, slot) return ((C_Container and C_Container.PickupContainerItem) or PickupContainerItem)(bag, slot) end
 
 local tradeOpen = false
 local token = 0
@@ -299,6 +299,61 @@ end
 ---------------------------------------------------------------------------
 -- Filling the trade window
 ---------------------------------------------------------------------------
+-- empty bag slots: plain bags first, then special bags (quiver, herb bag, ...)
+local function EmptySlots()
+    local plain, special = {}, {}
+    for bag = 0, ns.BAGS do
+        local _, family = C_Container.GetContainerNumFreeSlots(bag)
+        for slot = 1, (GetNumSlots(bag) or 0) do
+            if not C_Container.GetContainerItemID(bag, slot) then
+                local t = (not family or family == 0) and plain or special
+                t[#t + 1] = { bag = bag, slot = slot }
+            end
+        end
+    end
+    for _, e in ipairs(special) do plain[#plain + 1] = e end
+    return plain
+end
+
+-- puts one action into a trade slot; a split part is taken from the bag slot
+-- it was put into (once the game has it there)
+local function Place(a, tslot, mine, tries)
+    if mine ~= token or not tradeOpen then return end
+    local bag, slot = a.bag, a.slot
+    if a.target then
+        bag, slot = a.target.bag, a.target.slot
+        local info = C_Container.GetContainerItemInfo(bag, slot)
+        if not info or info.isLocked or info.stackCount ~= a.split then
+            if tries < 4 then
+                C_Timer.After(0.4, function() Place(a, tslot, mine, tries + 1) end)
+            else
+                ns.Print("Share: splitting off %d didn't work; put them in by hand.", a.split)
+            end
+            return
+        end
+    end
+    ClearCursor()
+    Pickup(bag, slot)
+    if CursorHasItem() then ClickTradeButton(tslot) end
+    if CursorHasItem() then ClearCursor() end
+    -- the right amount in the slot? Otherwise take it back out.
+    if a.expect then
+        C_Timer.After(0.25, function()
+            if mine ~= token or not tradeOpen or not GetTradePlayerItemInfo then return end
+            local _, _, n = GetTradePlayerItemInfo(tslot)
+            ns.Debug("TRADE slot %d: %s (wanted %d%s)", tslot, tostring(n), a.expect, a.split and ", split" or "")
+            if n and n ~= a.expect then
+                ClearCursor()
+                ClickTradeButton(tslot)        -- back onto the cursor
+                if CursorHasItem() then ClearCursor() end   -- and into the bags
+                ns.Print("Share: %d instead of %d landed in the trade, taken out again. Put %d in by hand.", n, a.expect, a.expect)
+            end
+        end)
+    end
+end
+
+-- The trade window takes whole bag slots only (a split dropped on it brings
+-- the whole stack), so parts of stacks first go into empty bag slots.
 local function Run(actions)
     local limit = MAX_TRADABLE_ITEMS or 6
     local free = {}
@@ -308,44 +363,48 @@ local function Run(actions)
     local count = math.min(#actions, #free)
     token = token + 1
     local mine = token
+    local Split = (C_Container and C_Container.SplitContainerItem) or SplitContainerItem
+    local empties = EmptySlots()
+    local t, placed = 0.1, 0
+
+    -- 1) split parts into empty bag slots
     for i = 1, count do
-        C_Timer.After(0.3 * (i - 1) + 0.1, function()
-            if mine ~= token or not tradeOpen then return end
-            local a = actions[i]
-            ClearCursor()
-            if a.split then
-                -- part of a stack; never the whole stack instead
-                local Split = (C_Container and C_Container.SplitContainerItem) or SplitContainerItem
-                if not Split then
-                    ns.Print("Share: this client can't split stacks; put %d in by hand.", a.split)
-                    return
-                end
-                ns.Debug("TRADE split %d from bag %d slot %d via %s", a.split, a.bag, a.slot,
-                    (C_Container and C_Container.SplitContainerItem) and "C_Container" or "global")
-                Split(a.bag, a.slot, a.split)
+        local a = actions[i]
+        if a.split then
+            local e = Split and table.remove(empties, 1)
+            if not Split then
+                a.skip = ("Share: this client can't split stacks; put %d in by hand."):format(a.split)
+            elseif not e then
+                a.skip = ("Share: no empty bag slot to split %d into; put them in by hand."):format(a.split)
             else
-                Pickup(a.bag, a.slot)
-            end
-            if CursorHasItem() then ClickTradeButton(free[i]) end
-            if CursorHasItem() then ClearCursor() end
-            -- the right amount in the slot? Otherwise take it back out.
-            if a.expect then
-                local slot = free[i]
-                C_Timer.After(0.25, function()
-                    if mine ~= token or not tradeOpen or not GetTradePlayerItemInfo then return end
-                    local _, _, n = GetTradePlayerItemInfo(slot)
-                    ns.Debug("TRADE slot %d: %s (wanted %d%s)", slot, tostring(n), a.expect, a.split and ", split" or "")
-                    if n and n ~= a.expect then
-                        ClearCursor()
-                        ClickTradeButton(slot)        -- back onto the cursor
-                        if CursorHasItem() then ClearCursor() end   -- and into the bags
-                        ns.Print("Share: %d instead of %d landed in the trade, taken out again. Put %d in by hand.", n, a.expect, a.expect)
-                    end
+                a.target = e
+                C_Timer.After(t, function()
+                    if mine ~= token or not tradeOpen then return end
+                    ClearCursor()
+                    ns.Debug("TRADE split %d from bag %d slot %d into bag %d slot %d", a.split, a.bag, a.slot, e.bag, e.slot)
+                    Split(a.bag, a.slot, a.split)
+                    if CursorHasItem() then Pickup(e.bag, e.slot) end
+                    if CursorHasItem() then ClearCursor() end
                 end)
+                t = t + 0.3
             end
-        end)
+        end
     end
-    return count, #actions - count
+    if t > 0.1 then t = t + 0.6 end   -- the game moves them first
+
+    -- 2) into the trade window
+    for i = 1, count do
+        local a = actions[i]
+        if a.skip then
+            ns.Print(a.skip)
+        else
+            placed = placed + 1
+            local tslot = free[placed]
+            C_Timer.After(t, function() Place(a, tslot, mine, 0) end)
+            t = t + 0.3
+        end
+    end
+    return placed, #actions - count
 end
 
 local function Fill(force)
