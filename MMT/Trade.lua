@@ -286,13 +286,13 @@ local function StackActions(stacks, amount)
     for _, st in ipairs(list) do
         if left <= 0 then break end
         if st.count <= left then
-            actions[#actions + 1] = { bag = st.bag, slot = st.slot }
+            actions[#actions + 1] = { bag = st.bag, slot = st.slot, expect = st.count }
             left = left - st.count
         else
             skipped = st   -- the smallest stack bigger than what is left
         end
     end
-    if left > 0 and skipped then actions[#actions + 1] = { bag = skipped.bag, slot = skipped.slot, split = left } end
+    if left > 0 and skipped then actions[#actions + 1] = { bag = skipped.bag, slot = skipped.slot, split = left, expect = left } end
     return actions
 end
 
@@ -313,13 +313,36 @@ local function Run(actions)
             if mine ~= token or not tradeOpen then return end
             local a = actions[i]
             ClearCursor()
-            if a.split and C_Container and C_Container.SplitContainerItem then
-                C_Container.SplitContainerItem(a.bag, a.slot, a.split)
+            if a.split then
+                -- part of a stack; never the whole stack instead
+                local Split = (C_Container and C_Container.SplitContainerItem) or SplitContainerItem
+                if not Split then
+                    ns.Print("Share: this client can't split stacks; put %d in by hand.", a.split)
+                    return
+                end
+                ns.Debug("TRADE split %d from bag %d slot %d via %s", a.split, a.bag, a.slot,
+                    (C_Container and C_Container.SplitContainerItem) and "C_Container" or "global")
+                Split(a.bag, a.slot, a.split)
             else
                 Pickup(a.bag, a.slot)
             end
             if CursorHasItem() then ClickTradeButton(free[i]) end
             if CursorHasItem() then ClearCursor() end
+            -- the right amount in the slot? Otherwise take it back out.
+            if a.expect then
+                local slot = free[i]
+                C_Timer.After(0.25, function()
+                    if mine ~= token or not tradeOpen or not GetTradePlayerItemInfo then return end
+                    local _, _, n = GetTradePlayerItemInfo(slot)
+                    ns.Debug("TRADE slot %d: %s (wanted %d%s)", slot, tostring(n), a.expect, a.split and ", split" or "")
+                    if n and n ~= a.expect then
+                        ClearCursor()
+                        ClickTradeButton(slot)        -- back onto the cursor
+                        if CursorHasItem() then ClearCursor() end   -- and into the bags
+                        ns.Print("Share: %d instead of %d landed in the trade, taken out again. Put %d in by hand.", n, a.expect, a.expect)
+                    end
+                end)
+            end
         end)
     end
     return count, #actions - count
