@@ -277,27 +277,8 @@ function ns.ShareSummary(maxLines)
     return table.concat(lines, "\n")
 end
 
--- whole stacks (biggest first) while they fit, then a split of one more stack
-local function StackActions(stacks, amount)
-    local list = {}
-    for _, st in ipairs(stacks or {}) do if not st.locked then list[#list + 1] = st end end
-    table.sort(list, function(a, b) return a.count > b.count end)
-    local actions, left, skipped = {}, amount, nil
-    for _, st in ipairs(list) do
-        if left <= 0 then break end
-        if st.count <= left then
-            actions[#actions + 1] = { bag = st.bag, slot = st.slot, expect = st.count }
-            left = left - st.count
-        else
-            skipped = st   -- the smallest stack bigger than what is left
-        end
-    end
-    if left > 0 and skipped then actions[#actions + 1] = { bag = skipped.bag, slot = skipped.slot, split = left, expect = left } end
-    return actions
-end
-
 ---------------------------------------------------------------------------
--- Filling the trade window
+-- Stacks for sharing
 ---------------------------------------------------------------------------
 -- empty bag slots: plain bags first, then special bags (quiver, herb bag, ...)
 local function EmptySlots()
@@ -315,25 +296,111 @@ local function EmptySlots()
     return plain
 end
 
--- puts one action into a trade slot; a split part is taken from the bag slot
--- it was put into (once the game has it there)
+-- Plans how to hand over `amount` of one item in as few stacks as possible.
+-- The trade window takes whole bag slots only (a split dropped on it brings
+-- the whole stack), so the bags are re-stacked first:
+--   1. full stacks go as they are; too few of them: partial stacks are
+--      merged into full ones first,
+--   2. the rest: a stack with exactly that many; else the biggest smaller
+--      stack, topped up from the others (smallest first); else a part split
+--      off into an empty bag slot.
+-- Returns moves { from, to, n, whole } and trade entries { bag, slot, expect }
+-- (plus a note when only part of it fits), or nil and a reason.
+local function ShareStacks(id, stacks, amount, empties)
+    local max = select(8, ns.ItemInfo(id))
+    local list = {}
+    for _, st in ipairs(stacks or {}) do
+        if not st.locked then list[#list + 1] = { bag = st.bag, slot = st.slot, count = st.count } end
+    end
+    if not max or max < 1 then max = 1 end
+    for _, st in ipairs(list) do if st.count > max then max = st.count end end
+    local moves, trade = {}, {}
+    local function Move(from, to, n)
+        moves[#moves + 1] = { from = from, to = to, n = n, whole = n == from.count }
+        from.count, to.count = from.count - n, to.count + n
+    end
+    local function Full()
+        local l = {}
+        for _, st in ipairs(list) do if st.count >= max and not st.used then l[#l + 1] = st end end
+        return l
+    end
+
+    -- 1. full stacks (merge partial ones first when there are too few)
+    local fulls, rest = math.floor(amount / max), amount % max
+    if #Full() < fulls then
+        table.sort(list, function(a, b) return a.count > b.count end)
+        local i, j = 1, #list
+        while i < j do
+            local to, from = list[i], list[j]
+            if to.count >= max then i = i + 1
+            elseif from.count == 0 then j = j - 1
+            else Move(from, to, math.min(from.count, max - to.count)) end
+        end
+    end
+    local full = Full()
+    if #full < fulls then return nil, "not enough in the bags" end
+    for k = 1, fulls do
+        full[k].used = true
+        trade[#trade + 1] = { bag = full[k].bag, slot = full[k].slot, expect = max }
+    end
+    if rest == 0 then return moves, trade end
+
+    -- 2. the rest
+    local left = {}
+    for _, st in ipairs(list) do if not st.used and st.count > 0 then left[#left + 1] = st end end
+    table.sort(left, function(a, b) return a.count < b.count end)
+    for _, st in ipairs(left) do
+        if st.count == rest then
+            trade[#trade + 1] = { bag = st.bag, slot = st.slot, expect = rest }
+            return moves, trade
+        end
+    end
+    local base
+    for _, st in ipairs(left) do if st.count < rest then base = st end end   -- biggest smaller one
+    if base then
+        for _, src in ipairs(left) do
+            if base.count >= rest then break end
+            if src ~= base then Move(src, base, math.min(src.count, rest - base.count)) end
+        end
+        if base.count ~= rest then return nil, "not enough in the bags" end
+        trade[#trade + 1] = { bag = base.bag, slot = base.slot, expect = rest }
+        return moves, trade
+    end
+    local src = left[1]   -- the smallest stack, bigger than the rest
+    if not src then return nil, "not enough in the bags" end
+    local e = table.remove(empties, 1)
+    if not e then
+        -- the full stacks still go; the rest needs a free bag slot
+        local note = ("no empty bag slot to split %d into"):format(rest)
+        if #trade > 0 then return moves, trade, note end
+        return nil, note
+    end
+    local to = { bag = e.bag, slot = e.slot, count = 0 }
+    Move(src, to, rest)
+    trade[#trade + 1] = { bag = e.bag, slot = e.slot, expect = rest }
+    return moves, trade
+end
+
+---------------------------------------------------------------------------
+-- Filling the trade window
+---------------------------------------------------------------------------
+-- puts one bag slot into a trade slot; with expect, only once the slot holds
+-- that many (bag moves before it take a moment)
 local function Place(a, tslot, mine, tries)
     if mine ~= token or not tradeOpen then return end
-    local bag, slot = a.bag, a.slot
-    if a.target then
-        bag, slot = a.target.bag, a.target.slot
-        local info = C_Container.GetContainerItemInfo(bag, slot)
-        if not info or info.isLocked or info.stackCount ~= a.split then
-            if tries < 4 then
+    if a.expect then
+        local info = C_Container.GetContainerItemInfo(a.bag, a.slot)
+        if not info or info.isLocked or info.stackCount ~= a.expect then
+            if tries < 5 then
                 C_Timer.After(0.4, function() Place(a, tslot, mine, tries + 1) end)
             else
-                ns.Print("Share: splitting off %d didn't work; put them in by hand.", a.split)
+                ns.Print("Share: re-stacking didn't work out (bag %d slot %d should hold %d); put them in by hand.", a.bag, a.slot, a.expect)
             end
             return
         end
     end
     ClearCursor()
-    Pickup(bag, slot)
+    Pickup(a.bag, a.slot)
     if CursorHasItem() then ClickTradeButton(tslot) end
     if CursorHasItem() then ClearCursor() end
     -- the right amount in the slot? Otherwise take it back out.
@@ -341,7 +408,7 @@ local function Place(a, tslot, mine, tries)
         C_Timer.After(0.25, function()
             if mine ~= token or not tradeOpen or not GetTradePlayerItemInfo then return end
             local _, _, n = GetTradePlayerItemInfo(tslot)
-            ns.Debug("TRADE slot %d: %s (wanted %d%s)", tslot, tostring(n), a.expect, a.split and ", split" or "")
+            ns.Debug("TRADE slot %d: %s (wanted %d)", tslot, tostring(n), a.expect)
             if n and n ~= a.expect then
                 ClearCursor()
                 ClickTradeButton(tslot)        -- back onto the cursor
@@ -352,59 +419,56 @@ local function Place(a, tslot, mine, tries)
     end
 end
 
--- The trade window takes whole bag slots only (a split dropped on it brings
--- the whole stack), so parts of stacks first go into empty bag slots.
-local function Run(actions)
-    local limit = MAX_TRADABLE_ITEMS or 6
+local function FreeTradeSlots()
     local free = {}
-    for s = 1, limit do
+    for s = 1, (MAX_TRADABLE_ITEMS or 6) do
         if not GetTradePlayerItemLink(s) then free[#free + 1] = s end
     end
+    return free
+end
+
+local function Locked(bag, slot)
+    local info = C_Container.GetContainerItemInfo(bag, slot)
+    return info and info.isLocked
+end
+
+-- bag moves first (one after the other, each once its slots are free again),
+-- then the stacks into the trade window
+local function Run(moves, actions)
+    local free = FreeTradeSlots()
     local count = math.min(#actions, #free)
     token = token + 1
     local mine = token
     local Split = (C_Container and C_Container.SplitContainerItem) or SplitContainerItem
-    local empties = EmptySlots()
-    local t, placed = 0.1, 0
 
-    -- 1) split parts into empty bag slots
-    for i = 1, count do
-        local a = actions[i]
-        if a.split then
-            local e = Split and table.remove(empties, 1)
-            if not Split then
-                a.skip = ("Share: this client can't split stacks; put %d in by hand."):format(a.split)
-            elseif not e then
-                a.skip = ("Share: no empty bag slot to split %d into; put them in by hand."):format(a.split)
-            else
-                a.target = e
-                C_Timer.After(t, function()
-                    if mine ~= token or not tradeOpen then return end
-                    ClearCursor()
-                    ns.Debug("TRADE split %d from bag %d slot %d into bag %d slot %d", a.split, a.bag, a.slot, e.bag, e.slot)
-                    Split(a.bag, a.slot, a.split)
-                    if CursorHasItem() then Pickup(e.bag, e.slot) end
-                    if CursorHasItem() then ClearCursor() end
-                end)
-                t = t + 0.3
-            end
-        end
-    end
-    if t > 0.1 then t = t + 0.6 end   -- the game moves them first
-
-    -- 2) into the trade window
-    for i = 1, count do
-        local a = actions[i]
-        if a.skip then
-            ns.Print(a.skip)
-        else
-            placed = placed + 1
-            local tslot = free[placed]
+    local function PlaceAll()
+        local t = 0
+        for i = 1, count do
+            local a, tslot = actions[i], free[i]
             C_Timer.After(t, function() Place(a, tslot, mine, 0) end)
             t = t + 0.3
         end
     end
-    return placed, #actions - count
+
+    local function Move(k, tries)
+        if mine ~= token or not tradeOpen then return end
+        local m = moves[k]
+        if not m then C_Timer.After(#moves > 0 and 0.4 or 0.1, PlaceAll) return end
+        if (Locked(m.from.bag, m.from.slot) or Locked(m.to.bag, m.to.slot)) and tries < 8 then
+            C_Timer.After(0.25, function() Move(k, tries + 1) end)
+            return
+        end
+        ClearCursor()
+        ns.Debug("TRADE move %d from bag %d slot %d to bag %d slot %d%s", m.n, m.from.bag, m.from.slot,
+            m.to.bag, m.to.slot, m.whole and " (whole stack)" or "")
+        if m.whole then Pickup(m.from.bag, m.from.slot)
+        elseif Split then Split(m.from.bag, m.from.slot, m.n) end
+        if CursorHasItem() then Pickup(m.to.bag, m.to.slot) end
+        if CursorHasItem() then ClearCursor() end
+        C_Timer.After(0.2, function() Move(k + 1, 0) end)
+    end
+    Move(1, 0)
+    return count, #actions - count
 end
 
 local function Fill(force)
@@ -419,14 +483,32 @@ local function Fill(force)
     -- shared roles: only between two of their members
     local me = ns.PlayerFull()
     local sharing, done = {}, {}
-    local actions, notes = {}, {}
+    local moves, actions, notes = {}, {}, {}
+    local slotsLeft = #FreeTradeSlots()
+    local empties = EmptySlots()
+    local Split = (C_Container and C_Container.SplitContainerItem) or SplitContainerItem
     for _, role in ipairs(ns.ShareRoles()) do
         if me and HasRole(me, role) and HasRole(partner, role) then
             sharing[#sharing + 1] = role
             local parts = {}
             for _, p in ipairs(ns.SharePlan(role, partner, done)) do
-                for _, a in ipairs(StackActions(p.stacks, p.give)) do actions[#actions + 1] = a end
-                parts[#parts + 1] = ("%d x %s (%d each)"):format(p.give, ns.ItemInfo(p.id) or ("item " .. p.id), p.share)
+                local name = ns.ItemInfo(p.id) or ("item " .. p.id)
+                local m, list, note = ShareStacks(p.id, p.stacks, p.give, empties)
+                if m and not Split then
+                    for _, mv in ipairs(m) do if not mv.whole then m, list = nil, "this client can't split stacks" break end end
+                end
+                if not m then
+                    ns.Print("Share: %d x %s for %s: %s; put them in by hand.", p.give, name, who, list)
+                elseif #list > slotsLeft then
+                    ns.Print("Share: %d x %s needs %d trade slots, %d are free. Trade again for it.", p.give, name, #list, slotsLeft)
+                else
+                    slotsLeft = slotsLeft - #list
+                    local n = 0
+                    for _, mv in ipairs(m) do moves[#moves + 1] = mv end
+                    for _, a in ipairs(list) do actions[#actions + 1] = a n = n + a.expect end
+                    parts[#parts + 1] = ("%d x %s (%d each)"):format(n, name, p.share)
+                    if note then ns.Print("Share: %d more %s for %s: %s; put them in by hand.", p.give - n, name, who, note) end
+                end
             end
             if #parts > 0 then notes[#notes + 1] = role .. ": " .. table.concat(parts, ", ") end
         end
@@ -453,7 +535,7 @@ local function Fill(force)
     end
     if #actions == 0 then return end
 
-    local count, rest = Run(actions)
+    local count, rest = Run(moves, actions)
     if count == 0 then return end
     if #notes > 0 then ns.Print("Share with %s: %s.", who, table.concat(notes, "; ")) end
     if count > shareCount then

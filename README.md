@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.23: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.24: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -209,9 +209,12 @@ Saved data from MMT 0.1.x is converted automatically.
     of roles; the items of each are split evenly among the members that have that role: every member's MMT
     reports its counts, the share per item is the total of the role members divided by
     their number (rounded down), and in a trade between two members the one above the
-    share gives the other what is missing (no more than it has above the share). Parts of
-    stacks are split into an empty bag slot first (the trade window only takes whole bag
-    slots), so the giver needs a free bag slot for that. Trades with characters without the role are not affected.
+    share gives the other what is missing (no more than it has above the share). The
+    trade window only takes whole bag slots, so the giver re-stacks first to hand over as
+    few stacks as possible: full stacks (partial ones merged into full ones when needed),
+    then the rest as one stack: one with exactly that many, else the biggest smaller one
+    topped up from the others, else a part split off into an empty bag slot (only then a
+    free bag slot is needed). Trades with characters without the role are not affected.
     Example: members 1, 2 and 4 carry 50, 0 and 40 water: 30 each; 1 trading with 2
     gives 20, 1 with 4 gives nothing, 4 with 2 gives 10. An item in several shared roles
     is shared by the first of them (alphabetical).
