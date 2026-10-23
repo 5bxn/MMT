@@ -2,14 +2,16 @@
 -- that member's role rules into the trade window. Trades are never
 -- accepted automatically. /mmt trade fills an open trade again.
 --
--- Share among team (one role): the items of that role are split evenly
--- between the members that have the role. Every member's client reports its
+-- Share among team (any number of roles): the items of each shared role are
+-- split evenly between the members that have that role. Every member's client reports its
 -- counts of those items; in a trade between two members, the one above the
 -- even share gives the other what is missing (no more than it has above
 -- its share). Per item: share = floor(total of the role members / number
 -- of role members). Members not heard from count as 0.
---   SHC:<id>,<count>;<id>,<count>...:<role>   this character's counts
+--   SHC:<id>,<count>;<id>,<count>...:<role>   this character's counts (one
+--                                            message per shared role it has)
 --   SHQ                                      please send your counts
+-- An item in several shared roles is shared by the first of them (by name).
 
 local _, ns = ...
 
@@ -101,10 +103,20 @@ end
 ---------------------------------------------------------------------------
 -- Share among team
 ---------------------------------------------------------------------------
--- the shared role, or nil (none chosen / role deleted)
-function ns.ShareRole()
-    local r = ns.db and ns.db.trade.shareRole
-    if r and r ~= "" and ns.db.roles[r] then return r end
+-- the shared roles, sorted (deleted roles left out). Converts the single
+-- role of MMT 0.9.19.
+function ns.ShareRoles()
+    if not ns.db then return {} end
+    local t = ns.db.trade
+    t.shareRoles = t.shareRoles or {}
+    if type(t.shareRole) == "string" then
+        if t.shareRole ~= "" then t.shareRoles[t.shareRole] = true end
+        t.shareRole = nil
+    end
+    local l = {}
+    for r, on in pairs(t.shareRoles) do if on and ns.db.roles[r] then l[#l + 1] = r end end
+    table.sort(l)
+    return l
 end
 
 local function HasRole(key, role)
@@ -135,10 +147,18 @@ local function OwnShare(role)
     return counts, stacks
 end
 
--- last known counts of the team: MMTDB.shareCounts[key] = { role, items = { [id] = n }, at }
-local function Known()
+-- last known counts of the team: MMTDB.shareCounts[key][role] = { items = { [id] = n }, at }
+local function Known(key)
     MMTDB.shareCounts = MMTDB.shareCounts or {}
-    return MMTDB.shareCounts
+    local k = MMTDB.shareCounts[key]
+    if not k or k.items then k = {} MMTDB.shareCounts[key] = k end   -- 0.9.19 kept one role
+    return k
+end
+
+local function CountsOf(key, role, own)
+    if ns.IsSelf(key) then return own or OwnShare(role) end
+    local k = Known(key)[role]
+    return k and k.items or {}
 end
 
 local function Encode(counts)
@@ -150,17 +170,21 @@ local function Encode(counts)
     return table.concat(parts, ";")
 end
 
-local lastSent
+local lastSent = {}   -- [role] = message
 local function SendShareCounts(force)
-    local role = ns.ShareRole()
     local me = ns.PlayerFull()
-    if not (role and me and HasRole(me, role)) then return end
-    local counts = OwnShare(role)
-    Known()[me] = { role = role, items = counts, at = time() }
-    local msg = ("SHC:%s:%s"):format(Encode(counts), role)
-    if msg == lastSent and not force then return end
-    lastSent = msg
-    if #msg > 240 and ns.SendLong then ns.SendLong(msg, nil, "NORMAL") else ns.SendToTeam(msg, true, "NORMAL") end
+    if not me then return end
+    for _, role in ipairs(ns.ShareRoles()) do
+        if HasRole(me, role) then
+            local counts = OwnShare(role)
+            Known(me)[role] = { items = counts, at = time() }
+            local msg = ("SHC:%s:%s"):format(Encode(counts), role)
+            if force or msg ~= lastSent[role] then
+                lastSent[role] = msg
+                if #msg > 240 and ns.SendLong then ns.SendLong(msg, nil, "NORMAL") else ns.SendToTeam(msg, true, "NORMAL") end
+            end
+        end
+    end
 end
 
 local sendPending = false
@@ -176,71 +200,79 @@ ns.Listen("TEAM_MESSAGE", function(key, sender, text)
     if not list then return end
     local items = {}
     for id, n in list:gmatch("(%d+),(%d+)") do items[tonumber(id)] = tonumber(n) end
-    Known()[key] = { role = role, items = items, at = time() }
+    Known(key)[role] = { items = items, at = time() }
 end)
 
-ns.On("BAG_UPDATE_DELAYED", function() if ns.ready and ns.ShareRole() then SendSoon(false) end end)
+ns.On("BAG_UPDATE_DELAYED", function() if ns.ready and #ns.ShareRoles() > 0 then SendSoon(false) end end)
 ns.Listen("LOGIN", function() C_Timer.After(5, function()
-    if ns.ShareRole() then SendShareCounts(true) ns.SendToTeam("SHQ", true, "NORMAL") end
+    if #ns.ShareRoles() > 0 then SendShareCounts(true) ns.SendToTeam("SHQ", true, "NORMAL") end
 end) end)
--- a new role chosen: everybody reports again
-local reportedRole
+-- other roles chosen: everybody reports again
+local reported = ""
 ns.OnRefresh(function()
     if not ns.ready then return end
-    local role = ns.ShareRole()
-    if role ~= reportedRole then
-        reportedRole = role
-        if role then SendSoon(true) ns.SendToTeam("SHQ", true, "NORMAL") end
+    local now = table.concat(ns.ShareRoles(), "\n")
+    if now ~= reported then
+        reported = now
+        if now ~= "" then SendSoon(true) ns.SendToTeam("SHQ", true, "NORMAL") end
     end
 end)
 
--- per item: { id, give, share, total } for this character -> partner
-function ns.SharePlan(role, partner)
+-- per item: { id, give, share, stacks } for this character -> partner;
+-- done[id] = true: already shared by another role (skipped, then marked)
+function ns.SharePlan(role, partner, done)
+    done = done or {}
     local members = ns.ShareMembers(role)
-    local me = ns.PlayerFull()
     local own, stacks = OwnShare(role)
-    local known = Known()
-    local function CountsOf(key)
-        if ns.IsSelf(key) then return own end
-        local k = known[key]
-        return (k and k.role == role and k.items) or {}
-    end
     local ids = {}
-    for _, key in ipairs(members) do for id in pairs(CountsOf(key)) do ids[id] = true end end
+    for _, key in ipairs(members) do for id in pairs(CountsOf(key, role, own)) do ids[id] = true end end
     local plan = {}
     for id in pairs(ids) do
-        local total = 0
-        for _, key in ipairs(members) do total = total + (CountsOf(key)[id] or 0) end
-        local share = math.floor(total / #members)
-        local give = math.min((own[id] or 0) - share, share - (CountsOf(partner)[id] or 0))
-        ns.Debug("SHARE %s item %d: total %d, %d members, share %d, mine %d, partner %d -> give %d",
-            role, id, total, #members, share, own[id] or 0, CountsOf(partner)[id] or 0, math.max(0, give))
-        if give > 0 then plan[#plan + 1] = { id = id, give = give, share = share, stacks = stacks[id] } end
+        if not done[id] then
+            done[id] = true
+            local total = 0
+            for _, key in ipairs(members) do total = total + (CountsOf(key, role, own)[id] or 0) end
+            local share = math.floor(total / #members)
+            local partnerHas = CountsOf(partner, role, own)[id] or 0
+            local give = math.min((own[id] or 0) - share, share - partnerHas)
+            ns.Debug("SHARE %s item %d: total %d, %d members, share %d, mine %d, partner %d -> give %d",
+                role, id, total, #members, share, own[id] or 0, partnerHas, math.max(0, give))
+            if give > 0 then plan[#plan + 1] = { id = id, give = give, share = share, stacks = stacks[id] } end
+        end
     end
     table.sort(plan, function(a, b) return a.id < b.id end)
     return plan
 end
 
--- for the settings page: "Water: 3 members" and per item total and share
-function ns.ShareSummary()
-    local role = ns.ShareRole()
-    if not role then return "" end
-    local members = ns.ShareMembers(role)
-    if #members == 0 then return ("Nobody has the role %s yet (Team page)."):format(role) end
-    local totals, known = {}, Known()
-    for _, key in ipairs(members) do
-        local items
-        if ns.IsSelf(key) then items = OwnShare(role)
-        else items = known[key] and known[key].role == role and known[key].items or {} end
-        for id, n in pairs(items) do totals[id] = (totals[id] or 0) + n end
+-- for the settings page: per shared role its members, per item total and share
+function ns.ShareSummary(maxLines)
+    maxLines = maxLines or 6
+    local lines, done = {}, {}
+    local roles = ns.ShareRoles()
+    for _, role in ipairs(roles) do
+        local members = ns.ShareMembers(role)
+        if #members == 0 then
+            lines[#lines + 1] = ("%s: nobody has the role (Roles page)"):format(role)
+        else
+            local totals = {}
+            for _, key in ipairs(members) do
+                for id, n in pairs(CountsOf(key, role)) do totals[id] = (totals[id] or 0) + n end
+            end
+            local ids = {}
+            for id in pairs(totals) do if not done[id] then ids[#ids + 1] = id end end
+            table.sort(ids)
+            local parts = {}
+            for _, id in ipairs(ids) do
+                done[id] = true
+                parts[#parts + 1] = ("%s %d each"):format(ns.ItemInfo(id) or ("item " .. id), math.floor(totals[id] / #members))
+            end
+            lines[#lines + 1] = ("%s (%d): %s"):format(role, #members, #parts > 0 and table.concat(parts, ", ") or "none carried")
+        end
     end
-    local ids = {}
-    for id in pairs(totals) do ids[#ids + 1] = id end
-    table.sort(ids)
-    local lines = { ("%s: %d %s"):format(role, #members, #members == 1 and "member" or "members") }
-    for i, id in ipairs(ids) do
-        if i > 3 then lines[#lines + 1] = ("+%d more items"):format(#ids - 3) break end
-        lines[#lines + 1] = ("%s: %d, %d each"):format(ns.ItemInfo(id) or ("item " .. id), totals[id], math.floor(totals[id] / #members))
+    if #lines > maxLines then
+        local more = #lines - maxLines + 1
+        for _ = 1, more do table.remove(lines) end
+        lines[#lines + 1] = ("+%d more roles"):format(more)
     end
     return table.concat(lines, "\n")
 end
@@ -302,16 +334,19 @@ local function Fill(force)
     end
     local who = ns.FullDisplay(partner)
 
-    -- shared role: only between two of its members
-    local role = ns.ShareRole()
+    -- shared roles: only between two of their members
     local me = ns.PlayerFull()
-    local sharing = role and me and HasRole(me, role) and HasRole(partner, role)
+    local sharing, done = {}, {}
     local actions, notes = {}, {}
-    if sharing then
-        for _, p in ipairs(ns.SharePlan(role, partner)) do
-            for _, a in ipairs(StackActions(p.stacks, p.give)) do actions[#actions + 1] = a end
-            local name = ns.ItemInfo(p.id) or ("item " .. p.id)
-            notes[#notes + 1] = ("%d x %s (%d each)"):format(p.give, name, p.share)
+    for _, role in ipairs(ns.ShareRoles()) do
+        if me and HasRole(me, role) and HasRole(partner, role) then
+            sharing[#sharing + 1] = role
+            local parts = {}
+            for _, p in ipairs(ns.SharePlan(role, partner, done)) do
+                for _, a in ipairs(StackActions(p.stacks, p.give)) do actions[#actions + 1] = a end
+                parts[#parts + 1] = ("%d x %s (%d each)"):format(p.give, ns.ItemInfo(p.id) or ("item " .. p.id), p.share)
+            end
+            if #parts > 0 then notes[#notes + 1] = role .. ": " .. table.concat(parts, ", ") end
         end
     end
 
@@ -326,7 +361,9 @@ local function Fill(force)
         ns.Debug("TRADE roles: %s rules: %d", table.concat(roleNames, ","), #rules)
         if #rules > 0 then
             -- shared items are only given out by sharing
-            local exclude = sharing and function(item) return (ns.RoleWantsItem(role, item)) end or nil
+            local exclude = #sharing > 0 and function(item)
+                for _, role in ipairs(sharing) do if ns.RoleWantsItem(role, item) then return true end end
+            end or nil
             local items = CollectItems(rules, exclude)
             ns.Debug("TRADE matching stacks in bags: %d", #items)
             for _, it in ipairs(items) do actions[#actions + 1] = { bag = it.bag, slot = it.slot } end
@@ -336,7 +373,7 @@ local function Fill(force)
 
     local count, rest = Run(actions)
     if count == 0 then return end
-    if #notes > 0 then ns.Print("Share %s with %s: %s.", role, who, table.concat(notes, ", ")) end
+    if #notes > 0 then ns.Print("Share with %s: %s.", who, table.concat(notes, "; ")) end
     if count > shareCount then
         ns.Print("%d stack(s) put into the trade with %s (%s).", count - shareCount, who, table.concat(roleNames, ", "))
     end
@@ -350,9 +387,10 @@ function ns.FillTrade(force)
         if force then ns.Print("Open a trade with a team member first.") end
         return
     end
-    if not ns.db.trade.enabled and not ns.ShareRole() and not force then return end
+    local shared = #ns.ShareRoles() > 0
+    if not ns.db.trade.enabled and not shared and not force then return end
     -- sharing: fresh counts first (the partner answers within a moment)
-    if ns.ShareRole() then
+    if shared then
         ns.SendToTeam("SHQ", true, "ALERT")
         token = token + 1
         local mine = token

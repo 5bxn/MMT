@@ -964,15 +964,24 @@ ns.RegisterPage("trade", "Trade / Mail / Vendor", function(page)
     local gtr, str = Opt("trade", "enabled")
     L:Check("Fill trades from role rules", gtr, str,
         "When you open a trade with a team member, the items their roles ask for go into the trade window. You still accept the trade yourself. /mmt trade fills it again.")
-    local gsh, ssh = Opt("trade", "shareRole")
-    L:Cycle("Share among team", RoleChoices, gsh, function(v) ssh(v) ns.Refresh() end)
-    L:Note("Items of this role are split evenly among the members that have it. In a trade between two of them, the one above the even share gives what the other is missing.")
+    local function ShareChoices()
+        local l = {}
+        for _, c in ipairs(RoleChoices()) do if c.value ~= "" then l[#l + 1] = c end end
+        return l
+    end
+    L:Add(UI.MultiDropdown(page, COL_W, "Share among team", ShareChoices,
+        function(role) ns.ShareRoles() return ns.db.trade.shareRoles[role] and true or false end,
+        function(role)
+            ns.ShareRoles()
+            ns.db.trade.shareRoles[role] = not ns.db.trade.shareRoles[role] or nil
+        end), UI.ROW + 2)
+    L:Note("Pick any number of roles. The items of each are split evenly among the members that have that role. In a trade between two of them, the one above the even share gives what the other is missing.")
     local shareInfo = UI.Label(page, "")
     shareInfo:SetWidth(COL_W)
     shareInfo:SetJustifyH("LEFT")
     shareInfo:SetJustifyV("TOP")
     shareInfo:SetTextColor(0.75, 0.75, 0.75)
-    L:Add(shareInfo, 66)
+    L:Add(shareInfo, 80)
 
     L:Header("Sell list")
     local gsr, ssr = Opt("merchant", "sellRole")

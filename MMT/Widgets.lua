@@ -207,6 +207,12 @@ local function Popup()
         r:SetScript("OnClick", function(self)
             local item = self.item
             if not item or item.header then return end
+            -- multi-select lists stay open; a click switches the entry
+            if p.isOn then
+                if p.onPick then p.onPick(item.value) end
+                p:Render()
+                return
+            end
             p:Hide()
             if p.onPick then p.onPick(item.value) end
         end)
@@ -232,7 +238,8 @@ local function Popup()
                 else
                     r.text:SetPoint("LEFT", 14, 0)
                     r.text:SetTextColor(1, 1, 1)
-                    r.sel:SetShown(item.value == current)
+                    if self.isOn then r.sel:SetShown(self.isOn(item.value) and true or false)
+                    else r.sel:SetShown(item.value == current) end
                     r.hl:SetShown(true)
                 end
                 r:Show()
@@ -262,10 +269,11 @@ local function MatchScale(p, owner)
     p:SetScale((own and parent and parent > 0) and (own / parent) or 1)
 end
 
-function UI.OpenList(owner, items, current, onPick)
+-- isOn(value): optional; makes it a multi-select list (onPick switches an entry)
+function UI.OpenList(owner, items, current, onPick, isOn)
     local p = Popup()
     if p:IsShown() and p.owner == owner then p:Hide() return end
-    p.owner, p.items, p.current, p.onPick = owner, items, current, onPick
+    p.owner, p.items, p.current, p.onPick, p.isOn = owner, items, current, onPick, isOn
     MatchScale(p, owner)
     -- start scrolled to the selected entry
     p.offset = 0
@@ -303,6 +311,7 @@ function UI.Dropdown(parent, width, text, choices, get, set)
     value:SetJustifyH("RIGHT")
     value:SetWordWrap(false)
     value:SetTextColor(A[1], A[2], A[3])
+    b.valueLabel = value
 
     local function list() return type(choices) == "function" and choices() or choices end
     b.Refresh = function()
@@ -328,6 +337,31 @@ end
 
 -- older name, used all over the settings pages
 UI.Cycle = UI.Dropdown
+
+-- Dropdown with several choices: isOn(value) -> bool, toggle(value). The
+-- button shows the chosen entries (or "None").
+function UI.MultiDropdown(parent, width, text, choices, isOn, toggle)
+    local b = UI.Dropdown(parent, width, text, choices, function() return nil end, function() end)
+    local value = b.valueLabel
+    local function list() return type(choices) == "function" and choices() or choices end
+    b.Refresh = function()
+        local on = {}
+        for _, c in ipairs(list()) do
+            if not c.header and isOn(c.value) then on[#on + 1] = c.text or tostring(c.value) end
+        end
+        if value then value:SetText(#on > 0 and table.concat(on, ", ") or "None") end
+    end
+    b:SetScript("OnClick", function(self)
+        local l = list()
+        if #l == 0 then return end
+        UI.OpenList(self, l, nil, function(v)
+            toggle(v)
+            b.Refresh()
+            ns.Refresh()
+        end, isOn)
+    end)
+    return b
+end
 
 -- Single-line edit box with placeholder -------------------------------------------
 function UI.EditBox(parent, width, placeholder, onEnter)

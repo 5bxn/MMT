@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.19: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.20: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -205,14 +205,15 @@ Saved data from MMT 0.1.x is converted automatically.
     quality, Bind on Equip, item group). Items of the sell list are sold too; the
     never-sell list wins, greys included.
   - Trade: "Fill trades from role rules" puts the items the partner's roles want into
-    the trade window (it was on the Roles page). "Share among team" picks a role
-    whose items are split evenly among the members that have it: every member's MMT
+    the trade window (it was on the Roles page). "Share among team" picks any number
+    of roles; the items of each are split evenly among the members that have that role: every member's MMT
     reports its counts, the share per item is the total of the role members divided by
     their number (rounded down), and in a trade between two members the one above the
     share gives the other what is missing (no more than it has above the share; stacks
     are split as needed). Trades with characters without the role are not affected.
     Example: members 1, 2 and 4 carry 50, 0 and 40 water: 30 each; 1 trading with 2
-    gives 20, 1 with 4 gives nothing, 4 with 2 gives 10.
+    gives 20, 1 with 4 gives nothing, 4 with 2 gives 10. An item in several shared roles
+    is shared by the first of them (alphabetical).
   - Buy list: items and a count; at a vendor that sells them, each character buys up to
     that count (gold only). "Buy on" picks one character for an item; then only that
     character buys it.
