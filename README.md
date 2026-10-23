@@ -5,7 +5,7 @@
 # MMT - Manage My Team
 
 A lean multiboxing assistant for World of Warcraft: Forever (interface 16001).
-Version 0.9.20: core addon (MMT) plus optional modules (MMT_*).
+Version 0.9.21: core addon (MMT) plus optional modules (MMT_*).
 To install, download the repository (Code > Download ZIP) and copy the four `MMT*` folders.
 
 ## Install
@@ -234,7 +234,9 @@ Saved data from MMT 0.1.x is converted automatically.
   (e.g. `/mmt sync questtracker`), which sends only that module's settings.
   Messages are paced to stay under the game's addon message limit. The sender sees who
   it went to and who confirmed (received, accepted, declined); recipients see when a
-  transfer starts and when it is complete, then a dialog to accept it.
+  transfer starts and when it is complete, then a dialog to accept it. "Auto-accept
+  synced settings" (beside the button) applies core and module settings from team
+  members without the dialog; it is stored per account and never synced.
 - **Help**: debug tools with a how-to, and guides for writing modules and using the
   team communication (with copyable example code).
 

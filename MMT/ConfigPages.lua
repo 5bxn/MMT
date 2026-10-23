@@ -1191,8 +1191,13 @@ ns.RegisterPage("profiles", "Profiles", function(page)
     status:SetWidth(PAGE_W)
     col:Add(status, UI.ROW)
 
-    UI.SyncButton(page, "Sync to team", function() ns.SendProfileToTeam() end, "Sync core settings",
-        "Same as /mmt sync: sends the core settings of the active profile (team, roles, XP window incl. its position, automations, distance window) to your group and online team members. Each of them gets a dialog to accept them. Module settings are not included: every module page has its own Sync button.")
+    local syncButton = UI.SyncButton(page, "Sync to team", function() ns.SendProfileToTeam() end, "Sync core settings",
+        "Same as /mmt sync: sends the core settings of the active profile (team, roles, XP window incl. its position, automations, distance window) to your group and online team members. Each of them gets a dialog to accept them (or accepts on its own, see the option beside this button). Module settings are not included: every module page has its own Sync button.")
+    local autoAccept = UI.Check(page, 250, "Auto-accept synced settings",
+        function() return MMTDB.autoAcceptSync and true or false end,
+        function(v) MMTDB.autoAcceptSync = v or nil end,
+        "Settings a team member syncs to this client (core settings and module settings) are applied without the dialog. Only team members can sync. This option belongs to this account (all its characters) and is never synced itself.")
+    autoAccept:SetPoint("RIGHT", syncButton, "LEFT", -16, 0)
 
     page.OnRefresh = function()
         if not copySource or copySource == ns.CurrentProfileName() or not MMTDB.profiles[copySource] then

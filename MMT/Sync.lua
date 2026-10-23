@@ -305,6 +305,17 @@ local function Transfer(nk, key, sender, id, parts, channel)
     return t
 end
 
+-- Asks before applying, or applies right away when this client accepts
+-- every sync automatically (Profiles page; account-wide, never synced)
+local function AskOrAccept(text, label, accept, decline)
+    if MMTDB.autoAcceptSync then
+        ns.Print("%s accepted automatically.", label)
+        accept()
+        return
+    end
+    ns.UI.Confirm(text, "Accept settings", accept, "Decline", decline)
+end
+
 local function Complete(t)
     local payload = table.concat(t.chunks)
     local label = KindLabel(t.kind, t.profile)
@@ -326,15 +337,15 @@ local function Complete(t)
         end
         ns.Print("%sReceived|r the %s from %s completely.", OK, label, Name(t.who))
         Answer(t, "RECV")
-        ns.UI.Confirm(("%s wants to share the %s settings with you.\n\nAccepting replaces your %s settings in the profile \"%s\"."):format(
+        AskOrAccept(("%s wants to share the %s settings with you.\n\nAccepting replaces your %s settings in the profile \"%s\"."):format(
                 t.who, m.title, m.title, ns.CurrentProfileName()),
-            "Accept settings",
+            ("%s settings from %s"):format(m.title, Name(t.who)),
             function()
                 if ns.ImportModuleSettings(modName, data, t.who) then
                     ns.Print("%s settings from %s applied.", m.title, Name(t.who))
                     Answer(t, "ACCEPT")
                 end
-            end, "Decline",
+            end,
             function()
                 ns.Print("%s settings from %s declined.", m.title, Name(t.who))
                 Answer(t, "DECLINE")
@@ -352,14 +363,14 @@ local function Complete(t)
     ns.Print("%sReceived|r the %s from %s completely.", OK, label, Name(t.who))
     Answer(t, "RECV")
     -- own dialog instead of Blizzard's StaticPopup (taint)
-    ns.UI.Confirm(("%s wants to share the MMT core settings (profile \"%s\") with you: team, roles, XP window incl. position, automations.\n\nAccepting overwrites them in a profile with that name and makes it your active profile. Module settings stay as they are."):format(t.who, name),
-        "Accept settings",
+    AskOrAccept(("%s wants to share the MMT core settings (profile \"%s\") with you: team, roles, XP window incl. position, automations.\n\nAccepting overwrites them in a profile with that name and makes it your active profile. Module settings stay as they are."):format(t.who, name),
+        ("Core settings from %s"):format(Name(t.who)),
         function()
             if ns.ImportCoreSettings(name, data) then
                 ns.Print("Core settings (profile \"%s\") from %s imported and activated.", name, Name(t.who))
                 Answer(t, "ACCEPT")
             end
-        end, "Decline",
+        end,
         function()
             ns.Print("Core settings from %s declined.", Name(t.who))
             Answer(t, "DECLINE")
